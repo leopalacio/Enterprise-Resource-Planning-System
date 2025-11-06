@@ -1,4 +1,117 @@
 <!DOCTYPE html>
+<html>
+<head>
+  <style>
+  div {
+    background-color: white;
+    text-align: center;
+    width: 400px;
+    margin: 30px auto;
+    padding: 30px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+
+  .photodiv {
+    background-color: transparent;
+    text-align: center;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    border: none;
+  }
+
+  .person {
+    display: inline-block;
+    text-align: center;
+    margin: 10px;
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    width: auto;
+  }
+
+  .person img {
+    display: block;
+    width: 180px;
+    height: 240px;
+    margin: 0 auto 10px auto;
+  }
+
+  .person p {
+    margin: 0;
+  }
+  </style>
+  <title>Login Form</title>
+</head>
+<body>
+    <h1 style="text-align: center; margin-top: 20px;">IE 332 - GROUP 18</h1>
+    <div><br>
+    <h2>Log-in</h2>
+    
+    <form action="#" method="post" name="loginForm" onsubmit="return validate()">
+        
+      <label for="username">Username:</label>
+      <input type="text" name="username" id="username" placeholder="Enter username">
+      <br><br>
+        
+      <label for="password">Password:</label>
+      <input type="password" name="password" id="password" placeholder="Enter password">
+      <br><br>
+        
+      <input type="submit">
+      <input type="reset"><br><br></div>
+        
+    </form>
+    <div class="photodiv">
+    <div class="person">
+        <img src="person.jpg">
+        <p>Leonel Palacio</p>
+    </div>
+    <div class="person">
+        <img src="person.jpg">
+        <p>Maximo Vedoya</p>
+    </div>
+    <div class="person">
+        <img src="person.jpg">
+        <p>Daria Surmach</p>
+    </div>
+    <div class="person">
+        <img src="person.jpg">
+        <p>Emily Johns</p>
+    </div>
+    <div class="person">
+        <img src="person.jpg">
+        <p>Nikhai Tonwar</p>
+    </div>
+    <div class="person">
+        <img src="person.jpg">
+        <p>Casey Williams</p>
+    </div>
+</div>
+
+    <script>
+      function validate(){
+        if(document.loginForm.username.value == "") {
+          alert("Please provide your username!");
+          document.loginForm.username.focus();
+          return false;
+        }
+            
+        if(document.loginForm.password.value == "") {
+          alert("Please provide your password!");
+          document.loginForm.password.focus();
+          return false;
+        }
+        return true;
+        }
+    </script>
+    
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -16,11 +129,11 @@
       </ul>
       <input type="text" placeholder="Search company" class="search-bar">
     </nav>
-  </header>
+  </header> -->
 
-  <main class="dashboard">
+  <!-- <main class="dashboard"> -->
     <!-- Left Column -->
-    <section class="panel company-info">
+    <!-- <section class="panel company-info">
       <h2>Company Information</h2>
       <form>
         <label>Address</label><input type="text" value="123 Main St, Anytown, USA">
@@ -30,11 +143,11 @@
         <label>Product Diversity</label><input type="text" value="High">
         <button>Update Company Info</button>
       </form>
-    </section>
+    </section> -->
 
     <!-- Middle Column -->
-    <section class="panel transactions">
-      <h2>Transactions</h2>
+    <!-- <section class="panel transactions"> -->
+      <!-- <h2>Transactions</h2>
       <div class="date-range">
         <input type="date"> to <input type="date">
       </div>
@@ -49,10 +162,10 @@
         <p>Receipt #002 - Component Y - 2023-10-23</p>
       </div>
       <button>Update Transaction Data</button>
-    </section>
+    </section> -->
 
     <!-- Right Column -->
-    <section class="panel kpis">
+    <!-- <section class="panel kpis">
       <h2>Key Performance Indicators</h2>
       <div class="date-range">
         <input type="date"> to <input type="date">
@@ -81,4 +194,4 @@
     </section>
   </main>
 </body>
-</html>
+</html> -->
