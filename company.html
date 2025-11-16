@@ -1,20 +1,938 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Company Information</title>
-  <link rel="stylesheet" href="css/style.css">
+    <title>Company Information</title>
+    <!-- Plotly.js for creating graphs (from your ajax_example.html) -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <style>
+        /* Reset default browser styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background-color: #d3d3d3;
+            color: #333;
+        }
+
+        /* ===== NAVIGATION BAR STYLES ===== */
+        nav {
+            background-color: #e8e8e8;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            color: #0066cc;
+            text-decoration: underline;
+            font-size: 14px;
+        }
+
+        /* ===== SEARCH BOX STYLES ===== */
+        .search-box {
+            position: relative;
+            width: 250px;
+        }
+
+        .search-box input {
+            padding: 8px 12px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            width: 100%;
+            font-size: 14px;
+        }
+
+        /* Dropdown that appears below search box */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none; /* Hidden by default */
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Show dropdown when .show class is added */
+        .search-results.show {
+            display: block;
+        }
+
+        /* Individual search result item */
+        .search-result-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .search-result-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .no-results {
+            padding: 12px;
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* ===== MAIN CONTAINER STYLES ===== */
+        .container {
+            padding: 20px 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* Three-column grid layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* ===== CARD STYLES ===== */
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        /* ===== FORM STYLES ===== */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        input, select, textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background-color: #f9f9f9;
+        }
+
+        /* ===== BUTTON STYLES ===== */
+        .btn {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background-color: #357abd;
+        }
+
+        /* ===== TRANSACTION SECTION STYLES ===== */
+        .transaction-section {
+            margin-bottom: 15px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .transaction-list {
+            font-size: 12px;
+            color: #555;
+        }
+
+        /* Individual transaction item */
+        .transaction-item {
+            padding: 8px;
+            margin-bottom: 6px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #4a90e2;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .transaction-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* KPI Styles */
+        .kpi-metric {
+            margin-bottom: 15px;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #22c55e;
+            margin-bottom: 3px;
+        }
+
+        .kpi-description {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .status-healthy {
+            color: #22c55e;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Graph containers */
+        .graph-container {
+            width: 100%;
+            height: 150px;
+            margin: 10px 0;
+        }
+
+        .event-list-item {
+            font-size: 12px;
+            color: #555;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .event-list-item:last-child {
+            border-bottom: none;
+        }
+    </style>
 </head>
 <body>
-  <ul class="nav-tabs">
-    <li><a href="company.html">Company Information</a></li>
-    <li><a href="disruptions.html">Disruptions</a></li>
-    <li><a href="transactions.html">Transactions</a></li>
-    <li><a href="index.html">Logout</a></li>
-  </ul>
+    <!-- ===== NAVIGATION BAR ===== -->
+    <nav>
+        <div class="nav-links">
+            <a href="company.html">Company Information</a>
+            <a href="disruptions.html">Disruption Events</a>
+            <a href="transactions.html">Transactions</a>
+	    <a href="index.html">Logout</a>
+        </div>
+        
+        <!-- Search box with dropdown -->
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search company" autocomplete="off">
+            <div class="search-results" id="search-results"></div>
+        </div>
+    </nav>
 
-  <div align="center">
-    <h2>Company Information Page</h2>
-    <p>This is test text. </p>
-  </div>
+    <!-- ===== MAIN CONTENT CONTAINER ===== -->
+    <div class="container">
+        <h1 class="page-title">Company Name</h1>
+
+        <div class="dashboard-grid">
+            <!-- ===== LEFT COLUMN: COMPANY INFORMATION ===== -->
+            <div class="card">
+                <h2 class="card-title">Company Information</h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Address:</label>
+                        <input type="text" id="address" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Company Type:</label>
+                        <input type="text" id="company-type" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tier Level:</label>
+                        <input type="text" id="tier-level" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Depends On:</label>
+                        <input type="text" id="depends-on" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Dependencies:</label>
+                        <input type="text" id="dependencies" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Most Recent Financial Status:</label>
+                        <input type="text" id="financial-status" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Capacity:</label>
+                        <input type="text" id="capacity" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Products Supplied:</label>
+                        <input type="text" id="products" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Product Diversity:</label>
+                        <input type="text" id="product-diversity" readonly>
+                    </div>
+                </div>
+
+                <button class="btn">Update Company Info</button>
+            </div>
+
+            <!-- ===== MIDDLE COLUMN: TRANSACTIONS ===== -->
+            <div class="card">
+                <h2 class="card-title">Transactions</h2>
+                
+                <!-- Date filter inputs -->
+                <div class="date-inputs" style="margin-bottom: 15px;">
+                    <input type="date" id="transaction-start-date" style="margin-right: 8px;">
+                    <input type="date" id="transaction-end-date" style="margin-right: 8px;">
+                    <button class="btn" onclick="updateTransactions()" style="margin-top: 0; padding: 6px 15px;">Update Transaction Data</button>
+                </div>
+                
+                <!-- Shipping transactions section -->
+                <div class="transaction-section">
+                    <h3 class="section-label">Shipping</h3>
+                    <div id="shipping-list" class="transaction-list">
+                        <p style="color: #999;">No shipping data</p>
+                    </div>
+                </div>
+
+                <!-- Receiving transactions section -->
+                <div class="transaction-section">
+                    <h3 class="section-label">Receiving</h3>
+                    <div id="receiving-list" class="transaction-list">
+                        <p style="color: #999;">No receiving data</p>
+                    </div>
+                </div>
+
+                <!-- Adjustments section -->
+                <div class="transaction-section">
+                    <h3 class="section-label">Adjustments</h3>
+                    <div id="adjustments-list" class="transaction-list">
+                        <p style="color: #999;">No adjustment data</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== RIGHT COLUMN: KEY PERFORMANCE INDICATORS ===== -->
+            <div class="card">
+                <h2 class="card-title">Key Performance Indicators</h2>
+                
+                <!-- Date filter inputs for KPIs -->
+                <div class="date-inputs" style="margin-bottom: 15px;">
+                    <input type="date" id="kpi-start-date" style="margin-right: 8px;">
+                    <input type="date" id="kpi-end-date" style="margin-right: 8px;">
+                    <button class="btn" onclick="filterKPIsByDate()" style="margin-top: 0; padding: 6px 15px;">Filter by Date</button>
+                </div>
+
+                <!-- On-Time Delivery Rate -->
+                <div class="kpi-metric">
+                    <div class="kpi-label">On-Time Delivery Rate</div>
+                    <div class="kpi-value" id="delivery-rate">--</div>
+                    <div class="kpi-description">Shipments where delivery date ≤ promised date</div>
+                </div>
+
+                <!-- Delay Statistics -->
+                <div class="kpi-metric">
+                    <div class="kpi-label">Delay Statistics</div>
+                    <div style="font-size: 13px; color: #555;">
+                        <div id="avg-delay">Average Delay: --</div>
+                        <div id="std-delay">Standard Deviation of Delay: --</div>
+                    </div>
+                </div>
+
+                <!-- Financial Health Status -->
+                <div class="kpi-metric">
+                    <div class="kpi-label">Financial Health Status (Past Year)</div>
+                    <div class="status-healthy" id="financial-health-status">--</div>
+                    <!-- Graph for financial health trend -->
+                    <div id="financial-graph" class="graph-container"></div>
+                </div>
+
+                <!-- Disruption Event Counts -->
+                <div class="kpi-metric">
+                    <div class="kpi-label">Disruption Event Counts (Past Year)</div>
+                    <!-- Graph for disruption events -->
+                    <div id="disruption-graph" class="graph-container"></div>
+                    
+                    <div class="kpi-label" style="margin-top: 15px;">List of Events:</div>
+                    <div id="event-list">
+                        <p style="color: #999; font-size: 12px;">No events</p>
+                    </div>
+                </div>
+
+                <!-- Update KPI Data button at bottom -->
+                <button class="btn" onclick="updateKPIs()" style="margin-top: auto;">Update KPI Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== JAVASCRIPT CODE ===== -->
+    <script>
+        // Get references to search box elements
+        var searchInput = document.getElementById("search-input");
+        var searchResults = document.getElementById("search-results");
+        var currentCompanyId = null; // Stores the currently selected company ID
+
+        // =====================================================================
+        // SEARCH FUNCTIONALITY
+        // =====================================================================
+        // This runs every time the user types in the search box
+        searchInput.addEventListener("input", function() {
+            var searchTerm = searchInput.value.trim();
+            
+            // If search box is empty, hide the dropdown
+            if(searchTerm.length < 1) {
+                searchResults.classList.remove("show");
+                return;
+            }
+            
+            // Create AJAX request to search for companies
+            var xhttp = new XMLHttpRequest();
+            
+            // This function runs when we get a response from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Parse the JSON response
+                    var data = JSON.parse(this.responseText);
+                    
+                    // Clear previous search results
+                    searchResults.innerHTML = "";
+                    
+                    // If there's an error, show it
+                    if(data.error) {
+                        searchResults.innerHTML = '<div class="no-results">Error: ' + data.error + '</div>';
+                        searchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // If no companies found, show "no results" message
+                    if(data.length == 0) {
+                        searchResults.innerHTML = '<div class="no-results">No companies found</div>';
+                        searchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // Loop through each company and create a clickable item
+                    for(var i = 0; i < data.length; i++) {
+                        var item = document.createElement("div");
+                        item.className = "search-result-item";
+                        item.textContent = data[i].CompanyName;
+                        item.setAttribute("data-id", data[i].CompanyID);
+                        
+                        // When user clicks on a company, load its info
+                        item.onclick = function() {
+                            var companyId = this.getAttribute("data-id");
+                            var companyName = this.textContent;
+                            loadCompanyInfo(companyId);
+                            searchResults.classList.remove("show");
+                            searchInput.value = companyName;
+                        };
+                        
+                        searchResults.appendChild(item);
+                    }
+                    
+                    // Show the dropdown with results
+                    searchResults.classList.add("show");
+                }
+            };
+            
+            // If AJAX request fails, show error
+            xhttp.onerror = function() {
+                searchResults.innerHTML = '<div class="no-results">Connection error</div>';
+                searchResults.classList.add("show");
+            };
+            
+            // Send the search request to the PHP file
+            xhttp.open("GET", "supply_chain.php?action=search&query=" + encodeURIComponent(searchTerm), true);
+            xhttp.send();
+        });
+
+        // Hide search results dropdown when clicking outside the search box
+        document.addEventListener("click", function(event) {
+            if (!event.target.closest(".search-box")) {
+                searchResults.classList.remove("show");
+            }
+        });
+
+        // =====================================================================
+        // LOAD COMPANY INFORMATION
+        // =====================================================================
+        // This function loads all the info for a selected company
+        function loadCompanyInfo(companyId) {
+            currentCompanyId = companyId; // Store the company ID for later use
+            
+            var xhttp = new XMLHttpRequest();
+            
+            // When we get the company data back from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    var data = JSON.parse(this.responseText);
+                    
+                    if(data.error) {
+                        alert("Error: " + data.error);
+                        return;
+                    }
+                    
+                    // Update the page title with company name
+                    document.querySelector(".page-title").textContent = data.CompanyName;
+                    
+                    // Fill in all the company information fields
+                    document.getElementById("address").value = data.Address;
+                    document.getElementById("company-type").value = data.Type;
+                    document.getElementById("tier-level").value = data.TierLevel;
+                    document.getElementById("depends-on").value = data.UpstreamSuppliers;
+                    document.getElementById("dependencies").value = data.DownstreamDependencies;
+                    document.getElementById("financial-status").value = data.FinancialStatus;
+                    document.getElementById("capacity").value = data.Capacity;
+                    document.getElementById("products").value = data.Products;
+                    document.getElementById("product-diversity").value = data.ProductDiversity;
+                    
+                    // Load transaction data for this company
+                    loadTransactionData(companyId);
+                    
+                    // Clear KPI data - user needs to enter dates and click update button
+                    document.getElementById("delivery-rate").textContent = "--";
+                    document.getElementById("avg-delay").textContent = "Average Delay: --";
+                    document.getElementById("std-delay").textContent = "Standard Deviation of Delay: --";
+                    document.getElementById("financial-health-status").textContent = "--";
+                    document.getElementById("event-list").innerHTML = '<p style="color: #999; font-size: 12px;">No events</p>';
+                    document.getElementById("financial-graph").innerHTML = "";
+                    document.getElementById("disruption-graph").innerHTML = "";
+                    
+                    // DON'T auto-load KPI data - wait for user to enter dates and click button
+                }
+            };
+            
+            // Request company info from the PHP file
+            xhttp.open("GET", "supply_chain.php?company=" + companyId, true);
+            xhttp.send();
+        }
+
+        // =====================================================================
+        // LOAD TRANSACTION DATA
+        // =====================================================================
+        // This function loads transaction data for a company
+        // It can optionally filter by date range
+        function loadTransactionData(companyId, startDate, endDate) {
+            var xhttp = new XMLHttpRequest();
+            
+            // When we get the transaction data back from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                    } catch(e) {
+                        console.error("Failed to parse transaction JSON:", e);
+                        console.error("Response was:", this.responseText);
+                        alert("Error loading transaction data. Check console for details.");
+                        return;
+                    }
+                    
+                    if(data.error) {
+                        console.error("Transaction Error:", data.error);
+                        alert("Transaction Error: " + data.error);
+                        return;
+                    }
+                    
+                    // ===== DISPLAY SHIPPING DATA =====
+                    var shippingList = document.getElementById("shipping-list");
+                    if(data.shipping && data.shipping.length > 0) {
+                        shippingList.innerHTML = ""; // Clear existing content
+                        
+                        // Loop through each shipping transaction
+                        for(var i = 0; i < data.shipping.length; i++) {
+                            var item = document.createElement("div");
+                            item.className = "transaction-item";
+                            item.innerHTML = "<strong>Shipment #" + data.shipping[i].ShipmentID + "</strong><br>" +
+                                           "Product: " + data.shipping[i].Product + "<br>" +
+                                           "Promised Date: " + data.shipping[i].PromisedDate;
+                            shippingList.appendChild(item);
+                        }
+                    } else {
+                        shippingList.innerHTML = '<p style="color: #999;">No shipping data</p>';
+                    }
+                    
+                    // ===== DISPLAY RECEIVING DATA =====
+                    var receivingList = document.getElementById("receiving-list");
+                    if(data.receiving && data.receiving.length > 0) {
+                        receivingList.innerHTML = ""; // Clear existing content
+                        
+                        // Loop through each receiving transaction
+                        for(var i = 0; i < data.receiving.length; i++) {
+                            var item = document.createElement("div");
+                            item.className = "transaction-item";
+                            item.innerHTML = "<strong>Receipt #" + data.receiving[i].ReceivingID + "</strong><br>" +
+                                           "Product: " + data.receiving[i].Product + "<br>" +
+                                           "Received Date: " + data.receiving[i].ReceivedDate;
+                            receivingList.appendChild(item);
+                        }
+                    } else {
+                        receivingList.innerHTML = '<p style="color: #999;">No receiving data</p>';
+                    }
+                    
+                    // ===== DISPLAY ADJUSTMENTS DATA =====
+                    var adjustmentsList = document.getElementById("adjustments-list");
+                    if(data.adjustments && data.adjustments.length > 0) {
+                        adjustmentsList.innerHTML = ""; // Clear existing content
+                        
+                        // Loop through each adjustment transaction
+                        for(var i = 0; i < data.adjustments.length; i++) {
+                            var item = document.createElement("div");
+                            item.className = "transaction-item";
+                            item.innerHTML = "<strong>Inventory Adjustment</strong><br>" +
+                                           "Product: " + data.adjustments[i].Product + "<br>" +
+                                           "Date: " + data.adjustments[i].Date;
+                            adjustmentsList.appendChild(item);
+                        }
+                    } else {
+                        adjustmentsList.innerHTML = '<p style="color: #999;">No adjustment data</p>';
+                    }
+                }
+            };
+            
+            // Build the URL with company ID
+            var url = "supply_chain.php?action=transactions&company=" + companyId;
+            
+            // If dates are provided, add them to the URL
+            if(startDate && endDate) {
+                url += "&start_date=" + startDate + "&end_date=" + endDate;
+            }
+            
+            // Request transaction data from the PHP file
+            xhttp.open("GET", url, true);
+            xhttp.send();
+        }
+
+        // =====================================================================
+        // UPDATE TRANSACTIONS WITH DATE FILTER
+        // =====================================================================
+        // This function is called when the user clicks "Update Transaction Data"
+        function updateTransactions() {
+            // Make sure a company is selected first
+            if(!currentCompanyId) {
+                alert("Please select a company first");
+                return;
+            }
+            
+            // Get the date values from the input fields
+            var startDate = document.getElementById("transaction-start-date").value;
+            var endDate = document.getElementById("transaction-end-date").value;
+            
+            // Make sure both dates are selected
+            if(!startDate || !endDate) {
+                alert("Please select both start and end dates");
+                return;
+            }
+            
+            // Load transaction data with date filtering
+            loadTransactionData(currentCompanyId, startDate, endDate);
+        }
+
+        // =====================================================================
+        // FILTER KPIs BY DATE RANGE
+        // =====================================================================
+        // This function is called when the user clicks "Filter by Date"
+        function filterKPIsByDate() {
+            // Make sure a company is selected first
+            if(!currentCompanyId) {
+                alert("Please select a company first");
+                return;
+            }
+            
+            // Get the date values from the input fields
+            var startDate = document.getElementById("kpi-start-date").value;
+            var endDate = document.getElementById("kpi-end-date").value;
+            
+            // Make sure both dates are selected
+            if(!startDate || !endDate) {
+                alert("Please select both start and end dates");
+                return;
+            }
+            
+            // Load KPI data with date filtering
+            loadKPIData(currentCompanyId, startDate, endDate);
+        }
+
+        // =====================================================================
+        // UPDATE KPIs (for future use)
+        // =====================================================================
+        // This function is called when the user clicks "Update KPI Data" at the bottom
+        // You can use this for refreshing or updating the KPI data in the database
+        function updateKPIs() {
+            if(!currentCompanyId) {
+                alert("Please select a company first");
+                return;
+            }
+            
+            // TODO: Add functionality for updating KPI data
+            // For now, just reload the current KPI data
+            var startDate = document.getElementById("kpi-start-date").value;
+            var endDate = document.getElementById("kpi-end-date").value;
+            
+            if(startDate && endDate) {
+                loadKPIData(currentCompanyId, startDate, endDate);
+            } else {
+                alert("Please filter by date first using the 'Filter by Date' button");
+            }
+        }
+
+        // =====================================================================
+        // LOAD KPI DATA
+        // =====================================================================
+        // This function loads Key Performance Indicators for a company
+        // It can optionally filter by date range
+        function loadKPIData(companyId, startDate, endDate) {
+            var xhttp = new XMLHttpRequest();
+            
+            // When we get the KPI data back from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                    } catch(e) {
+                        console.error("Failed to parse JSON:", e);
+                        console.error("Response was:", this.responseText);
+                        alert("Error loading KPI data. Check console for details.");
+                        return;
+                    }
+                    
+                    if(data.error) {
+                        console.error("KPI Error:", data.error);
+                        alert("KPI Error: " + data.error);
+                        return;
+                    }
+                    
+                    // ===== UPDATE ON-TIME DELIVERY RATE =====
+                    if(data.deliveryRate !== null && data.deliveryRate !== undefined) {
+                        document.getElementById("delivery-rate").textContent = data.deliveryRate + "%";
+                    } else {
+                        document.getElementById("delivery-rate").textContent = "--";
+                    }
+                    
+                    // ===== UPDATE DELAY STATISTICS =====
+                    if(data.avgDelay !== null && data.avgDelay !== undefined) {
+                        document.getElementById("avg-delay").textContent = "Average Delay: " + data.avgDelay + " days";
+                    } else {
+                        document.getElementById("avg-delay").textContent = "Average Delay: --";
+                    }
+                    
+                    if(data.stdDelay !== null && data.stdDelay !== undefined) {
+                        document.getElementById("std-delay").textContent = "Standard Deviation of Delay: " + data.stdDelay + " days";
+                    } else {
+                        document.getElementById("std-delay").textContent = "Standard Deviation of Delay: --";
+                    }
+                    
+                    // ===== UPDATE FINANCIAL HEALTH STATUS =====
+                    if(data.financialStatus && data.financialStatus !== 'N/A') {
+                        document.getElementById("financial-health-status").textContent = data.financialStatus;
+                    } else {
+                        document.getElementById("financial-health-status").textContent = "--";
+                    }
+                    
+                    // ===== CREATE FINANCIAL HEALTH GRAPH =====
+                    // Using Plotly.js (from your ajax_example.html)
+                    if(data.financialTrend && data.financialTrend.length > 0) {
+                        var financialTrace = {
+                            x: data.financialTrend.map(function(item) { return item.quarter; }),
+                            y: data.financialTrend.map(function(item) { return item.score; }),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#22c55e', width: 2 }
+                        };
+                        
+                        var financialLayout = {
+                            margin: { t: 5, r: 10, b: 25, l: 35 },
+                            xaxis: { title: '' },
+                            yaxis: { title: 'Health Score' },
+                            height: 150
+                        };
+                        
+                        Plotly.newPlot('financial-graph', [financialTrace], financialLayout, {displayModeBar: false});
+                    }
+                    
+                    // ===== CREATE DISRUPTION EVENTS GRAPH =====
+                    if(data.disruptionTrend && data.disruptionTrend.length > 0) {
+                        var disruptionTrace = {
+                            x: data.disruptionTrend.map(function(item) { return item.month; }),
+                            y: data.disruptionTrend.map(function(item) { return item.count; }),
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: { color: '#ef4444', width: 2 }
+                        };
+                        
+                        var disruptionLayout = {
+                            margin: { t: 5, r: 10, b: 25, l: 35 },
+                            xaxis: { title: '' },
+                            yaxis: { title: 'Event Count' },
+                            height: 150
+                        };
+                        
+                        Plotly.newPlot('disruption-graph', [disruptionTrace], disruptionLayout, {displayModeBar: false});
+                    }
+                    
+                    // ===== UPDATE EVENT LIST =====
+                    var eventList = document.getElementById("event-list");
+                    if(data.events && data.events.length > 0) {
+                        eventList.innerHTML = "";
+                        for(var i = 0; i < data.events.length; i++) {
+                            var eventItem = document.createElement("div");
+                            eventItem.className = "event-list-item";
+                            eventItem.textContent = "· " + data.events[i].name + " (" + data.events[i].date + ")";
+                            eventList.appendChild(eventItem);
+                        }
+                    } else {
+                        eventList.innerHTML = '<p style="color: #999; font-size: 12px;">No events</p>';
+                    }
+                }
+            };
+            
+            // Build URL with company ID
+            var url = "supply_chain.php?action=kpi&company=" + companyId;
+            
+            // If dates are provided, add them to the URL
+            if(startDate && endDate) {
+                url += "&start_date=" + startDate + "&end_date=" + endDate;
+            }
+            
+            // Request KPI data from the PHP file
+            xhttp.open("GET", url, true);
+            xhttp.send();
+        }
+
+        // =====================================================================
+        // UPDATE KPIs WITH DATE FILTER
+        // =====================================================================
+        // This function is called when the user clicks "Update KPI Data"
+        function updateKPIs() {
+            // Make sure a company is selected first
+            if(!currentCompanyId) {
+                alert("Please select a company first");
+                return;
+            }
+            
+            // Get the date values from the input fields
+            var startDate = document.getElementById("kpi-start-date").value;
+            var endDate = document.getElementById("kpi-end-date").value;
+            
+            // Make sure both dates are selected
+            if(!startDate || !endDate) {
+                alert("Please select both start and end dates");
+                return;
+            }
+            
+            // Load KPI data with date filtering
+            loadKPIData(currentCompanyId, startDate, endDate);
+        }
+
+        // =====================================================================
+        // PAGE LOAD - CLEAR ALL FIELDS
+        // =====================================================================
+        // This runs when the page first loads
+        window.onload = function() {
+            currentCompanyId = null;
+            
+            // Clear the page title
+            document.querySelector(".page-title").textContent = "Company Name";
+            
+            // Clear all company info fields
+            document.getElementById("address").value = "";
+            document.getElementById("company-type").value = "";
+            document.getElementById("tier-level").value = "";
+            document.getElementById("depends-on").value = "";
+            document.getElementById("dependencies").value = "";
+            document.getElementById("financial-status").value = "";
+            document.getElementById("capacity").value = "";
+            document.getElementById("products").value = "";
+            document.getElementById("product-diversity").value = "";
+            searchInput.value = "";
+            
+            // Clear transaction data
+            document.getElementById("shipping-list").innerHTML = '<p style="color: #999;">No shipping data</p>';
+            document.getElementById("receiving-list").innerHTML = '<p style="color: #999;">No receiving data</p>';
+            document.getElementById("adjustments-list").innerHTML = '<p style="color: #999;">No adjustment data</p>';
+            
+            // Clear date inputs
+            document.getElementById("transaction-start-date").value = "";
+            document.getElementById("transaction-end-date").value = "";
+            document.getElementById("kpi-start-date").value = "";
+            document.getElementById("kpi-end-date").value = "";
+            
+            // Clear KPI data
+            document.getElementById("delivery-rate").textContent = "--";
+            document.getElementById("avg-delay").textContent = "Average Delay: --";
+            document.getElementById("std-delay").textContent = "Standard Deviation of Delay: --";
+            document.getElementById("financial-health-status").textContent = "--";
+            document.getElementById("event-list").innerHTML = '<p style="color: #999; font-size: 12px;">No events</p>';
+            
+            // Clear graphs
+            document.getElementById("financial-graph").innerHTML = "";
+            document.getElementById("disruption-graph").innerHTML = "";
+        };
+    </script>
+
 </body>
 </html>

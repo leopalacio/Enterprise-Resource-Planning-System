@@ -32,10 +32,15 @@ if (mysqli_num_rows($result) > 0) {
         header("Location: senior_manager.html");
         exit();
     } else {
-        echo "Unknown role type.";
+        echo "Unknown role type."; //user exists but has an unknown/invalid role
     }
 } else {
-    echo "<h3>Invalid username or password. Please try again.</h3>";
+    //the <script> is for PHP to output JavaScript code that will run in the browser
+    //the alert is for the pop up
+    echo "<script> 
+            alert('Invalid username or password. Please try again.'); 
+            window.location.href = 'index.html';
+          </script>";
 }
 
 // Close connection
