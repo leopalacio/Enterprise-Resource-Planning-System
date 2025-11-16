@@ -106,4 +106,5 @@ if(isset($_GET['action']) && $_GET['action'] == 'search') {
     }
     $companyfrequency_data = mysqli_fetch_assoc($result_companyfrequency);
     $companyfrequency_rate = $companyfrequency_data && $companyfrequency_data['CompanyFrequency'] !== null ? round($companyfrequency_data['CompanyFrequency'], 0) : null;
+$conn->close();
 ?>  
