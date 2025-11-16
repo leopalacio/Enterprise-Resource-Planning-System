@@ -1,8 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Disruptions</title>
-  <link rel="stylesheet" href="css/style.css">
+    <title>Disruption Analysis Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    <style>
+        * {margin:0; padding:0; box-sizing:border-box;}
+        body {font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background-color: #d3d3d3; color:#333;}
+        nav {background-color: #e8e8e8; padding:20px 40px;
+            display:flex; justify-content:space-between; align-items:center;}
+        .nav-links {display:flex; gap:30px;}
+        .nav-links a {color:#0066cc; text-decoration:underline; font-size:14px;}
+        .search-box {position:relative; width:250px;}
+        .search-box input {
+            padding:8px 12px; border:1px solid #999; border-radius:4px;
+            width:100%; font-size:14px;}
+        .search-results {
+            position: absolute; top:100%; left:0; right:0; background-color:white;
+            border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; max-height:300px;
+            overflow-y:auto; display:none; z-index:1000; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
+        .search-results.show {display:block;}
+        .search-result-item {
+            padding:12px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:14px;}
+        .search-result-item:hover {background-color:#f5f5f5;}
+        .no-results {padding:12px; color:#999; font-size:14px; text-align:center;}
+        .container {padding:20px 40px; max-width:1600px; margin:0 auto;}
+        .page-title {text-align:center; font-size:28px; font-weight:600; margin-bottom:20px; color:#333;}
+        .dashboard-grid {display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px;}
+        .card {
+            background-color:white; border-radius:8px; padding:20px;
+            box-shadow:0 2px 4px rgba(0,0,0,0.1); max-height:calc(100vh - 180px); overflow-y:auto; display:flex; flex-direction:column;
+        }
+        .card-title {font-size:16px; font-weight:600; margin-bottom:15px; color:#333;}
+        .form-row {display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;}
+        .form-group {display:flex; flex-direction:column;}
+        .form-group.full-width {grid-column:1 / -1;}
+        label {font-size:11px; color:#666; margin-bottom:5px;}
+        input, select, textarea {
+            padding:8px; border:1px solid #ddd; border-radius:4px; font-size:13px; background-color:#f9f9f9;
+        }
+        .btn {background-color:#4a90e2; color:white; border:none; padding:8px 20px; border-radius:6px;
+            font-size:13px; cursor:pointer; margin-top:10px;}
+        .btn:hover {background-color:#357abd;}
+        .transaction-section {margin-bottom:15px;}
+        .section-label {font-size:13px; font-weight:600; color:#333; margin-bottom:8px;}
+        .transaction-list {font-size:12px; color:#555;}
+        .transaction-item {padding:8px; margin-bottom:6px; background-color:#f9f9f9;
+            border-left:3px solid #4a90e2; border-radius:4px; font-size:12px; line-height:1.5;}
+        .transaction-item:last-child {margin-bottom:0;}
+        .kpi-metric {margin-bottom:15px;}
+        .kpi-label {font-size:12px; color:#666; margin-bottom:5px;}
+        .kpi-value {font-size:24px; font-weight:700; color:#22c55e; margin-bottom:3px;}
+        .kpi-description {font-size:11px; color:#999;}
+        .status-healthy {color:#22c55e; font-size:16px; font-weight:600;}
+        .graph-container {width:100%; height:150px; margin:10px 0;}
+        .event-list-item {font-size:12px; color:#555; padding:5px 0; border-bottom:1px solid #f0f0f0;}
+        .event-list-item:last-child {border-bottom:none;}
+        .formula-block {background:#f8f8fe; border-radius:10px; padding:12px 20px;
+            font-family:'Times New Roman', serif; font-size:19px; margin:7px 0 2px 0; display:inline-block;}
+        .plot-instruction {font-size:13px; color:#5052a7; font-style:italic;}
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <nav>
@@ -15,18 +74,364 @@
 
   <!-- Company search box with dropdown -->
   <div class="search-box">
-      <input type="text" id="search-input" placeholder="Search company" autocomplete="off">
-      <div class="search-results" id="search-results"></div>
+      <input type="text" id="company-search-input" placeholder="Search company" autocomplete="off">
+      <div class="search-results company-search-results" id="company-search-results"></div>
   </div>
 
   <!-- Region search box with dropdown -->
   <div class="search-box">
-      <input type="text" id="search-input" placeholder="Search region" autocomplete="off">
-      <div class="search-results" id="search-results"></div>
+      <input type="text" id="region-search-input" placeholder="Search region" autocomplete="off">
+      <div class="search-results region-search-results" id="region-search-results"></div>
   </div>
 </nav>
+<div class="container">
+    <h1 class="page-title">Disruption Analysis Dashboard</h1>
+    <div class="dashboard-grid">
 
-  <div class="container">
-      <h1 class="page-title">Disruptions Page</h1>
+        <!-- LEFT COLUMN: COMPANY INFO -->
+        <div class="card">
+            <h2 class="card-title">Company Information</h2>
+            <div class="form-row">
+                <div class="form-group"><label>Address:</label><input type="text" id="address" readonly></div>
+                <div class="form-group"><label>Company Type:</label><input type="text" id="company-type" readonly></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Tier Level:</label><input type="text" id="tier-level" readonly></div>
+                <div class="form-group"><label>Depends On:</label><input type="text" id="depends-on" readonly></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Dependencies:</label><input type="text" id="dependencies" readonly></div>
+                <div class="form-group"><label>Most Recent Financial Status:</label><input type="text" id="financial-status" readonly></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Capacity:</label><input type="text" id="capacity" readonly></div>
+                <div class="form-group"><label>Products Supplied:</label><input type="text" id="products" readonly></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width"><label>Product Diversity:</label><input type="text" id="product-diversity" readonly></div>
+            </div>
+            <button class="btn">Update Company Info</button>
+        </div>
+
+        <!-- MIDDLE COLUMN: TRANSACTIONS + EVENTS -->
+        <div class="card">
+            <h2 class="card-title">Disruption Events & Transactions</h2>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <input type="date" id="transaction-start-date" style="margin-right: 8px;">
+                    <input type="date" id="transaction-end-date" style="margin-right: 8px;">
+                    <button class="btn" style="padding:6px 15px;" onclick="updateTransactions()">Update Data</button>
+                </div>
+            </div>
+            <div class="transaction-section">
+                <h3 class="section-label">Shipping</h3>
+                <div id="shipping-list" class="transaction-list"></div>
+            </div>
+            <div class="transaction-section">
+                <h3 class="section-label">Receiving</h3>
+                <div id="receiving-list" class="transaction-list"></div>
+            </div>
+            <div class="transaction-section">
+                <h3 class="section-label">Adjustments</h3>
+                <div id="adjustments-list" class="transaction-list"></div>
+            </div>
+            <h3 class="section-label">Disruption Events:</h3>
+            <div id="event-list"></div>
+        </div>
+
+        <!-- RIGHT COLUMN: KPI + METRICS/CHARTS -->
+        <div class="card">
+            <h2 class="card-title">Disruption Metrics & KPIs</h2>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <input type="date" id="kpi-start-date" style="margin-right:8px;">
+                    <input type="date" id="kpi-end-date" style="margin-right:8px;">
+                    <button class="btn" style="padding:6px 15px;" onclick="filterKPIsByDate()">Filter by Date</button>
+                </div>
+            </div>
+            <!-- On-time delivery/financial -->
+            <div class="kpi-metric">
+                <div class="kpi-label">On-Time Delivery Rate</div>
+                <div class="kpi-value" id="delivery-rate">--</div>
+                <div class="kpi-description">Percent deliveries on or before promised date</div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Average Delay</div>
+                <div id="avg-delay">--</div>
+                <div id="std-delay">--</div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Financial Health Status</div>
+                <div class="status-healthy" id="financial-health-status">--</div>
+                <div id="financial-graph" class="graph-container"></div>
+            </div>
+            <!-- Disruption Event Metrics -->
+            <div class="kpi-metric">
+                <div class="kpi-label">Disruption Frequency (DF)</div>
+                <div class="formula-block">\( DF = \frac{N_{disruptions}}{T} \)</div>
+                <div class="plot-instruction">Plot by company as <b>bar chart</b></div>
+                <div id="df-bar" class="graph-container"></div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Average Recovery Time (ART)</div>
+                <div class="formula-block">\( ART = \frac{1}{N}\sum_{i=1}^N (t^{rec}_i-t^{event}_i) \)</div>
+                <div class="plot-instruction">Plot as <b>histogram</b></div>
+                <div id="art-histogram" class="graph-container"></div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">High-Impact Disruption Rate (HDR)</div>
+                <div class="formula-block">\( HDR = \frac{N_{high\,impact}}{N_{disruptions}}\times100\% \)</div>
+                <div class="plot-instruction">Share of disruptions classified as "high severity"</div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Total Downtime (TD)</div>
+                <div class="formula-block">\( TD = \sum_{i=1}^{N}(t^{rec}_i-t^{event}_i) \)</div>
+                <div class="plot-instruction">Plot as <b>histogram</b></div>
+                <div id="td-histogram" class="graph-container"></div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Regional Risk Concentration (RRC)</div>
+                <div class="formula-block">\( RRC_r = \frac{N_{disruptions, r}}{N_{disruptions, total}} \)</div>
+                <div class="plot-instruction">Plot as <b>heatmap</b></div>
+                <div id="rrc-heatmap" class="graph-container"></div>
+            </div>
+            <div class="kpi-metric">
+                <div class="kpi-label">Disruption Severity Distribution (DSD)</div>
+                <div class="plot-instruction">Plot as <b>stacked bar chart</b></div>
+                <div id="dsd-bar" class="graph-container"></div>
+            </div>
+            <div id="disruption-graph" class="graph-container"></div>
+            <button class="btn" onclick="updateKPIs()">Update KPI Data</button>
+        </div>
+    </div>
+</div>
+<script>
+// =====================================================================
+// COMPANY SEARCH FUNCTIONALITY
+// =====================================================================
+    var companysearchInput = document.getElementById("company-search-input");
+    var companysearchResults = document.getElementById("company-search-results");
+    var currentCompanyId = null;
+
+    companysearchInput.addEventListener("input", function() {
+            var searchTerm = companysearchInput.value.trim();
+            
+            // If search box is empty, hide the dropdown
+            if(searchTerm.length < 1) {
+                companysearchResults.classList.remove("show");
+                return;
+            }
+            
+            // Create AJAX request to search for companies
+            var xhttp = new XMLHttpRequest();
+            
+            // This function runs when we get a response from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Parse the JSON response
+                    var data = JSON.parse(this.responseText);
+                    
+                    // Clear previous search results
+                    companysearchResults.innerHTML = "";
+                    
+                    // If there's an error, show it
+                    if(data.error) {
+                        companysearchResults.innerHTML = '<div class="no-results">Error: ' + data.error + '</div>';
+                        companysearchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // If no companies found, show "no results" message
+                    if(data.length == 0) {
+                        companysearchResults.innerHTML = '<div class="no-results">No companies found</div>';
+                        companysearchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // Loop through each company and create a clickable item
+                    for(var i = 0; i < data.length; i++) {
+                        var item = document.createElement("div");
+                        item.className = "search-result-item";
+                        item.textContent = data[i].CompanyName;
+                        item.setAttribute("data-id", data[i].CompanyID);
+                        
+                        // When user clicks on a company, load its info
+                        item.onclick = function() {
+                            var companyId = this.getAttribute("data-id");
+                            var companyName = this.textContent;
+                            loadCompanyInfo(companyId);
+                            companysearchResults.classList.remove("show");
+                            companysearchInput.value = companyName;
+                        };
+                        
+                        companysearchResults.appendChild(item);
+                    }
+                    
+                    // Show the dropdown with results
+                    companysearchResults.classList.add("show");
+                }
+            };
+            
+            // If AJAX request fails, show error
+            xhttp.onerror = function() {
+                companysearchResults.innerHTML = '<div class="no-results">Connection error</div>';
+                companysearchResults.classList.add("show");
+            };
+            
+            // Send the search request to the PHP file
+            xhttp.open("GET", "disruptions.php?action=company_search&query=" + encodeURIComponent(searchTerm), true);
+            xhttp.send();
+        });
+
+        // Hide search results dropdown when clicking outside the search box
+        document.addEventListener("click", function(event) {
+            if (!event.target.closest(".search-box")) {
+                companysearchResults.classList.remove("show");
+            }
+        });
+
+// =====================================================================
+// REGION SEARCH FUNCTIONALITY
+// =====================================================================
+    var regionsearchInput = document.getElementById("region-search-input");
+    var regionsearchResults = document.getElementById("region-search-results");
+    var currentLocationId = null;
+
+    regionsearchInput.addEventListener("input", function() {
+            var searchTerm = regionsearchInput.value.trim();
+            
+            // If search box is empty, hide the dropdown
+            if(searchTerm.length < 1) {
+                regionsearchResults.classList.remove("show");
+                return;
+            }
+            
+            // Create AJAX request to search for regions
+            var xhttp = new XMLHttpRequest();
+            
+            // This function runs when we get a response from the server
+            xhttp.onload = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Parse the JSON response
+                    var data = JSON.parse(this.responseText);
+                    
+                    // Clear previous search results
+                    regionsearchResults.innerHTML = "";
+                    
+                    // If there's an error, show it
+                    if(data.error) {
+                        regionsearchResults.innerHTML = '<div class="no-results">Error: ' + data.error + '</div>';
+                        regionsearchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // If no regions found, show "no results" message
+                    if(data.length == 0) {
+                        regionsearchResults.innerHTML = '<div class="no-results">No regions found</div>';
+                        regionsearchResults.classList.add("show");
+                        return;
+                    }
+                    
+                    // Loop through each region and create a clickable item
+                    for(var i = 0; i < data.length; i++) {
+                        var item = document.createElement("div");
+                        item.className = "search-result-item";
+                        item.textContent = data[i].ContinentName;
+                        item.setAttribute("data-id", data[i].LocationID);
+                        
+                        // When user clicks on a company, load its info
+                        item.onclick = function() {
+                            var locationId = this.getAttribute("data-id");
+                            var continentName = this.textContent;
+                            loadRegionInfo(locationId);
+                            regionsearchResults.classList.remove("show");
+                            regionsearchInput.value = continentName;
+                        };
+                        
+                        regionsearchResults.appendChild(item);
+                    }
+                    
+                    // Show the dropdown with results
+                    regionsearchResults.classList.add("show");
+                }
+            };
+            
+            // If AJAX request fails, show error
+            xhttp.onerror = function() {
+                regionsearchResults.innerHTML = '<div class="no-results">Connection error</div>';
+                regionsearchResults.classList.add("show");
+            };
+            
+            // Send the search request to the PHP file
+            xhttp.open("GET", "disruptions.php?action=region_search&query=" + encodeURIComponent(searchTerm), true);
+            xhttp.send();
+        });
+
+        // Hide search results dropdown when clicking outside the search box
+        document.addEventListener("click", function(event) {
+            if (!event.target.closest(".search-box")) {
+                regionsearchResults.classList.remove("show");
+            }
+        });
+
+    // ---- COMPANY DATA / KPI DATA ----
+    // These fields should be populated by backend (PHP AJAX or SSR), not JS mockups
+    // When a company is selected, your backend should provide all necessary info
+
+    function loadCompanyInfo(companyId) {
+        currentCompanyId = companyId;
+        // TODO: Replace the following block with AJAX call to PHP backend
+        // Example (pseudo):
+        /*
+        fetch("company_info.php?id=" + companyId)
+          .then(resp => resp.json())
+          .then(data => {
+              // Populate fields:
+              document.getElementById("address").value = data.address;
+              document.getElementById("company-type").value = data.type;
+              document.getElementById("tier-level").value = data.tier;
+              ...etc
+
+              // Populate KPIs, events, transactions
+              // Render charts below with Plotly using response arrays
+              Plotly.newPlot('df-bar', [buildDFChartData(data.df)], chartOptionsDF, {displayModeBar:false});
+              ...etc
+          });
+        */
+    }
+
+    function updateTransactions() {
+        if(currentCompanyId) loadCompanyInfo(currentCompanyId);
+    }
+    function filterKPIsByDate() {
+        if(currentCompanyId) loadCompanyInfo(currentCompanyId);
+    }
+    function updateKPIs(){
+        if(currentCompanyId) loadCompanyInfo(currentCompanyId);
+    }
+    window.onload = function() {
+        // On page load, ensure fields are blank unless backend populates them
+        document.querySelector(".page-title").textContent = "Disruption Analysis Dashboard";
+        [
+            "address", "company-type", "tier-level", "depends-on", "dependencies", 
+            "financial-status", "capacity", "products", "product-diversity"
+        ].forEach(id => {document.getElementById(id).value = "";});
+        document.getElementById("shipping-list").innerHTML = '';
+        document.getElementById("receiving-list").innerHTML = '';
+        document.getElementById("adjustments-list").innerHTML = '';
+        document.getElementById("delivery-rate").textContent = "--";
+        document.getElementById("avg-delay").textContent = "--";
+        document.getElementById("std-delay").textContent = "--";
+        document.getElementById("financial-health-status").textContent = "--";
+        document.getElementById("event-list").innerHTML = '';
+        document.getElementById("financial-graph").innerHTML = "";
+        document.getElementById("df-bar").innerHTML = "";
+        document.getElementById("art-histogram").innerHTML = "";
+        document.getElementById("td-histogram").innerHTML = "";
+        document.getElementById("rrc-heatmap").innerHTML = "";
+        document.getElementById("dsd-bar").innerHTML = "";
+        document.getElementById("disruption-graph").innerHTML = "";
+    }
+</script>
 </body>
 </html>

@@ -16,7 +16,7 @@ if (!$conn) {
 // ============================================================================
 // HANDLE COMPANY SEARCH REQUEST (when user types in search box)
 // ============================================================================
-if(isset($_GET['action']) && $_GET['action'] == 'search') {
+if(isset($_GET['action']) && $_GET['action'] == 'company_search') {
     // Get the search term from the URL and make it safe for SQL
     $searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
     
@@ -44,19 +44,20 @@ if(isset($_GET['action']) && $_GET['action'] == 'search') {
     // Send the results back as JSON
     header('Content-Type: application/json');
     echo json_encode($companies);
+}
 
 // ============================================================================
 // HANDLE REGION SEARCH REQUEST (when user types in search box)
 // ============================================================================
-if(isset($_GET['action']) && $_GET['action'] == 'search') {
+if(isset($_GET['action']) && $_GET['action'] == 'region_search') {
     // Get the search term from the URL and make it safe for SQL
     $searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
     
     // Search for regions matching the search term
-    $sql = "SELECT LocationID, ContinentName AS Region 
+    $sql = "SELECT DISTINCT ContinentName 
             FROM Location 
-            WHERE Region LIKE '%" . $searchTerm . "%' 
-            ORDER BY Region 
+            WHERE ContinentName LIKE '%" . $searchTerm . "%' 
+            ORDER BY ContinentName 
             LIMIT 10";
     
     // Run the query
@@ -100,11 +101,11 @@ if(isset($_GET['action']) && $_GET['action'] == 'search') {
                              GROUP BY c.CompanyID 
                              ORDER BY DisruptionCount DESC, c.CompanyName";
     
-    $result_companyfrequency = mysqli_query($conn, $sql_delivery);
+    $result_companyfrequency = mysqli_query($conn, $sql_companyfrequency);
     if(!$result_companyfrequency) {
         die(json_encode(["error" => "Frequency query failed: " . mysqli_error($conn)]));
     }
     $companyfrequency_data = mysqli_fetch_assoc($result_companyfrequency);
     $companyfrequency_rate = $companyfrequency_data && $companyfrequency_data['CompanyFrequency'] !== null ? round($companyfrequency_data['CompanyFrequency'], 0) : null;
 $conn->close();
-?>  
+?> 
