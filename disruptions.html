@@ -5,15 +5,28 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <ul class="nav-tabs">
-    <li><a href="company.html">Company Information</a></li>
-    <li><a href="disruptions.html">Disruptions</a></li>
-    <li><a href="transactions.html">Transactions</a></li>
-    <li><a href="index.html">Logout</a></li>
-  </ul>
-
-  <div align="center">
-    <h2>Disruptions Page</h2>
+<nav>
+  <div class="nav-links">
+      <a href="company.html">Company Information</a>
+      <a href="disruptions.html">Disruption Events</a>
+      <a href="transactions.html">Transactions</a>
+      <a href="index.html">Logout</a>
   </div>
+
+  <!-- Company search box with dropdown -->
+  <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search company" autocomplete="off">
+      <div class="search-results" id="search-results"></div>
+  </div>
+
+  <!-- Region search box with dropdown -->
+  <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search region" autocomplete="off">
+      <div class="search-results" id="search-results"></div>
+  </div>
+</nav>
+
+  <div class="container">
+      <h1 class="page-title">Disruptions Page</h1>
 </body>
 </html>
