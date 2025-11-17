@@ -1,72 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-  div {
-    background-color: white;
-    text-align: center;
-    width: 400px;
-    margin: 30px auto;
-    padding: 30px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-  }
-
-  .photodiv {
-    background-color: transparent;
-    text-align: center;
-    width: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-    border: none;
-  }
-
-  .person {
-    display: inline-block;
-    text-align: center;
-    margin: 10px;
-    background-color: transparent;
-    border: none;
-    padding: 0;
-    width: auto;
-  }
-
-  .person img {
-    display: block;
-    width: 180px;
-    height: 240px;
-    margin: 0 auto 10px auto;
-  }
-
-  .person p {
-    margin: 0;
-  }
-  </style>
+  <link rel="stylesheet" href="css/login.css">
   <title>Login Form</title>
 </head>
 <body>
     <h1 style="text-align: center; margin-top: 20px;">IE 332 - GROUP 18</h1>
-    <div><br>
+  <div class="login-wrapper">
     <h2>Log-in</h2>
     
-  <!-- <form action="" method="post" name="loginForm" onsubmit="return validate()"> -->
-     <!--  <form action="login.php" method="post" name="loginForm" onsubmit="return validate()"> -->
-    <form action="company.html" method="get">
+    <form action="login.php" method="post" name="loginForm" onsubmit="return validate()">
 
+        <label for="username">Username:</label>
+        <input type="text" name="username" id="username" placeholder="Enter username">
+        <br><br>
+          
+        <label for="password">Password:</label>
+        <input type="password" name="password" id="password" placeholder="Enter password">
+        <br><br>
+          
+        <input type="submit" name="login" id="login" value="Login">
+        <input type="reset">
+        <br><br>
 
-      <label for="username">Username:</label>
-      <input type="text" name="username" id="username" placeholder="Enter username">
-      <br><br>
-        
-      <label for="password">Password:</label>
-      <input type="password" name="password" id="password" placeholder="Enter password">
-      <br><br>
-        
-      <input type="submit">
-      <input type="reset"><br><br></div>
-        
     </form>
+
+  </div>
+
     <div class="photodiv">
     <div class="person">
         <img src="person.jpg">
@@ -110,91 +70,5 @@
         return true;
         }
     </script>
-    </form>
 </body>
 </html>
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Company Dashboard</title>
-  <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-  <header>
-    <nav>
-      <ul class="nav-tabs">
-        <li><a href="#">Company Information</a></li>
-        <li><a href="#">Disruption Events</a></li>
-        <li><a href="#">Transactions</a></li>
-      </ul>
-      <input type="text" placeholder="Search company" class="search-bar">
-    </nav>
-  </header> -->
-
-  <!-- <main class="dashboard"> -->
-    <!-- Left Column -->
-    <!-- <section class="panel company-info">
-      <h2>Company Information</h2>
-      <form>
-        <label>Address</label><input type="text" value="123 Main St, Anytown, USA">
-        <label>Tier Level</label><input type="text" value="Tier 1">
-        <label>Dependencies</label><input type="text" value="Customer X, Customer Y">
-        <label>Capacity</label><input type="text" value="1000 units/day">
-        <label>Product Diversity</label><input type="text" value="High">
-        <button>Update Company Info</button>
-      </form>
-    </section> -->
-
-    <!-- Middle Column -->
-    <!-- <section class="panel transactions"> -->
-      <!-- <h2>Transactions</h2>
-      <div class="date-range">
-        <input type="date"> to <input type="date">
-      </div>
-      <div class="data-box">
-        <h3>Shipping</h3>
-        <p>Shipment #001 - Product A - 2023-10-26</p>
-        <p>Shipment #002 - Product C - 2023-10-25</p>
-      </div>
-      <div class="data-box">
-        <h3>Receiving</h3>
-        <p>Receipt #001 - Raw Material X - 2023-10-24</p>
-        <p>Receipt #002 - Component Y - 2023-10-23</p>
-      </div>
-      <button>Update Transaction Data</button>
-    </section> -->
-
-    <!-- Right Column -->
-    <!-- <section class="panel kpis">
-      <h2>Key Performance Indicators</h2>
-      <div class="date-range">
-        <input type="date"> to <input type="date">
-      </div>
-      <div class="kpi-box">
-        <h3>On-Time Delivery Rate</h3>
-        <p><strong>95%</strong> of shipments met delivery dates</p>
-      </div>
-      <div class="kpi-box">
-        <h3>Delay Statistics</h3>
-        <p>Average Delay: 0.5 days</p>
-        <p>Std Dev of Delay: 0.2 days</p>
-      </div>
-      <div class="kpi-box">
-        <h3>Financial Health Status</h3>
-        <p>Stable</p>
-      </div>
-      <div class="kpi-box">
-        <h3>Disruption Event Counts</h3>
-        <ul>
-          <li>Supply Chain Interruption (2023-05-10)</li>
-          <li>Logistics Delay (2023-03-15)</li>
-          <li>Raw Material Shortage (2022-11-20)</li>
-        </ul>
-      </div>
-    </section>
-  </main>
-</body>
-</html> -->

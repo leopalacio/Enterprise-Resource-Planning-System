@@ -1,0 +1,45 @@
+/* Login container */
+div {
+    background-color: white;
+    text-align: center;
+    width: 400px;
+    margin: 30px auto;
+    padding: 30px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+/* Photo grid container */
+.photodiv {
+    background-color: transparent;
+    text-align: center;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    border: none;
+}
+
+/* Individual person card */
+.person {
+    display: inline-block;
+    text-align: center;
+    margin: 10px;
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    width: auto;
+}
+
+/* Person image */
+.person img {
+    display: block;
+    width: 180px;
+    height: 240px;
+    margin: 0 auto 10px auto;
+}
+
+/* Person label */
+.person p {
+    margin: 0;
+}
