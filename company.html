@@ -4,262 +4,7 @@
     <title>Company Information</title>
     <!-- Plotly.js for creating graphs (from your ajax_example.html) -->
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <style>
-        /* Reset default browser styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background-color: #d3d3d3;
-            color: #333;
-        }
-
-        /* ===== NAVIGATION BAR STYLES ===== */
-        nav {
-            background-color: #e8e8e8;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 30px;
-        }
-
-        .nav-links a {
-            color: #0066cc;
-            text-decoration: underline;
-            font-size: 14px;
-        }
-
-        /* ===== SEARCH BOX STYLES ===== */
-        .search-box {
-            position: relative;
-            width: 250px;
-        }
-
-        .search-box input {
-            padding: 8px 12px;
-            border: 1px solid #999;
-            border-radius: 4px;
-            width: 100%;
-            font-size: 14px;
-        }
-
-        /* Dropdown that appears below search box */
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 4px 4px;
-            max-height: 300px;
-            overflow-y: auto;
-            display: none; /* Hidden by default */
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        /* Show dropdown when .show class is added */
-        .search-results.show {
-            display: block;
-        }
-
-        /* Individual search result item */
-        .search-result-item {
-            padding: 12px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 14px;
-        }
-
-        .search-result-item:hover {
-            background-color: #f5f5f5;
-        }
-
-        .no-results {
-            padding: 12px;
-            color: #999;
-            font-size: 14px;
-            text-align: center;
-        }
-
-        /* ===== MAIN CONTAINER STYLES ===== */
-        .container {
-            padding: 20px 40px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .page-title {
-            text-align: center;
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        /* Three-column grid layout */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-        }
-
-        /* ===== CARD STYLES ===== */
-        .card {
-            background-color: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            max-height: calc(100vh - 180px);
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        /* ===== FORM STYLES ===== */
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        label {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        input, select, textarea {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-            background-color: #f9f9f9;
-        }
-
-        /* ===== BUTTON STYLES ===== */
-        .btn {
-            background-color: #4a90e2;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .btn:hover {
-            background-color: #357abd;
-        }
-
-        /* ===== TRANSACTION SECTION STYLES ===== */
-        .transaction-section {
-            margin-bottom: 15px;
-        }
-
-        .section-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .transaction-list {
-            font-size: 12px;
-            color: #555;
-        }
-
-        /* Individual transaction item */
-        .transaction-item {
-            padding: 8px;
-            margin-bottom: 6px;
-            background-color: #f9f9f9;
-            border-left: 3px solid #4a90e2;
-            border-radius: 4px;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-
-        .transaction-item:last-child {
-            margin-bottom: 0;
-        }
-
-        /* KPI Styles */
-        .kpi-metric {
-            margin-bottom: 15px;
-        }
-
-        .kpi-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        .kpi-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #22c55e;
-            margin-bottom: 3px;
-        }
-
-        .kpi-description {
-            font-size: 11px;
-            color: #999;
-        }
-
-        .status-healthy {
-            color: #22c55e;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        /* Graph containers */
-        .graph-container {
-            width: 100%;
-            height: 150px;
-            margin: 10px 0;
-        }
-
-        .event-list-item {
-            font-size: 12px;
-            color: #555;
-            padding: 5px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .event-list-item:last-child {
-            border-bottom: none;
-        }
-    </style>
+    <link rel="stylesheet" href="css/company.css">
 </head>
 <body>
     <!-- ===== NAVIGATION BAR ===== -->
@@ -268,7 +13,7 @@
             <a href="company.html">Company Information</a>
             <a href="disruptions.html">Disruption Events</a>
             <a href="transactions.html">Transactions</a>
-	    <a href="index.html">Logout</a>
+            <a href="index.html">Logout</a>
         </div>
         
         <!-- Search box with dropdown -->
@@ -304,19 +49,22 @@
                         <input type="text" id="tier-level" readonly>
                     </div>
                     <div class="form-group">
-                        <label>Depends On:</label>
-                        <input type="text" id="depends-on" readonly>
+                        <label>Most Recent Financial Status:</label>
+                        <input type="text" id="financial-status" readonly>
                     </div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Dependencies:</label>
-                        <input type="text" id="dependencies" readonly>
+                    <div class="form-group full-width">
+                        <label>Depends On:</label>
+                        <textarea id="depends-on" readonly rows="2" style="resize: vertical; white-space: pre-line;"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label>Most Recent Financial Status:</label>
-                        <input type="text" id="financial-status" readonly>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Dependencies:</label>
+                        <textarea id="dependencies" readonly rows="2" style="resize: vertical; white-space: pre-line;"></textarea>
                     </div>
                 </div>
 
@@ -326,8 +74,15 @@
                         <input type="text" id="capacity" readonly>
                     </div>
                     <div class="form-group">
+                        <label>Routes Operated:</label>
+                        <input type="text" id="routes-operated" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
                         <label>Products Supplied:</label>
-                        <input type="text" id="products" readonly>
+                        <textarea id="products" readonly rows="2" style="resize: vertical; white-space: pre-line;"></textarea>
                     </div>
                 </div>
 
@@ -349,7 +104,7 @@
                 <div class="date-inputs" style="margin-bottom: 15px;">
                     <input type="date" id="transaction-start-date" style="margin-right: 8px;">
                     <input type="date" id="transaction-end-date" style="margin-right: 8px;">
-                    <button class="btn" onclick="updateTransactions()" style="margin-top: 0; padding: 6px 15px;">Update Transaction Data</button>
+                    <button class="btn" onclick="filterTransactionsByDate()" style="margin-top: 0; padding: 6px 15px;">Filter by Date</button>
                 </div>
                 
                 <!-- Shipping transactions section -->
@@ -375,6 +130,9 @@
                         <p style="color: #999;">No adjustment data</p>
                     </div>
                 </div>
+
+                <!-- Update Transaction Data button at bottom -->
+                <button class="btn" onclick="updateTransactions()" style="margin-top: auto;">Update Transaction Data</button>
             </div>
 
             <!-- ===== RIGHT COLUMN: KEY PERFORMANCE INDICATORS ===== -->
@@ -412,14 +170,10 @@
                     <div id="financial-graph" class="graph-container"></div>
                 </div>
 
-                <!-- Disruption Event Counts -->
+                <!-- Disruption Events List -->
                 <div class="kpi-metric">
-                    <div class="kpi-label">Disruption Event Counts (Past Year)</div>
-                    <!-- Graph for disruption events -->
-                    <div id="disruption-graph" class="graph-container"></div>
-                    
-                    <div class="kpi-label" style="margin-top: 15px;">List of Events:</div>
-                    <div id="event-list">
+                    <div class="kpi-label">Disruption Events (Within Date Range)</div>
+                    <div id="event-list" style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
                         <p style="color: #999; font-size: 12px;">No events</p>
                     </div>
                 </div>
@@ -544,11 +298,32 @@
                     document.getElementById("address").value = data.Address;
                     document.getElementById("company-type").value = data.Type;
                     document.getElementById("tier-level").value = data.TierLevel;
-                    document.getElementById("depends-on").value = data.UpstreamSuppliers;
-                    document.getElementById("dependencies").value = data.DownstreamDependencies;
+                    
+                    // Format Depends On as list (one per line)
+                    if(data.UpstreamSuppliers && data.UpstreamSuppliers !== 'N/A') {
+                        document.getElementById("depends-on").value = data.UpstreamSuppliers.replace(/, /g, '\n');
+                    } else {
+                        document.getElementById("depends-on").value = data.UpstreamSuppliers;
+                    }
+                    
+                    // Format Dependencies as list (one per line)
+                    if(data.DownstreamDependencies && data.DownstreamDependencies !== 'N/A') {
+                        document.getElementById("dependencies").value = data.DownstreamDependencies.replace(/, /g, '\n');
+                    } else {
+                        document.getElementById("dependencies").value = data.DownstreamDependencies;
+                    }
+                    
                     document.getElementById("financial-status").value = data.FinancialStatus;
                     document.getElementById("capacity").value = data.Capacity;
-                    document.getElementById("products").value = data.Products;
+                    document.getElementById("routes-operated").value = data.RoutesOperated;
+                    
+                    // Format Products Supplied as list (one per line)
+                    if(data.Products && data.Products !== 'N/A') {
+                        document.getElementById("products").value = data.Products.replace(/, /g, '\n');
+                    } else {
+                        document.getElementById("products").value = data.Products;
+                    }
+                    
                     document.getElementById("product-diversity").value = data.ProductDiversity;
                     
                     // Load transaction data for this company
@@ -561,7 +336,10 @@
                     document.getElementById("financial-health-status").textContent = "--";
                     document.getElementById("event-list").innerHTML = '<p style="color: #999; font-size: 12px;">No events</p>';
                     document.getElementById("financial-graph").innerHTML = "";
-                    document.getElementById("disruption-graph").innerHTML = "";
+                    
+                    // Clear date inputs
+                    document.getElementById("kpi-start-date").value = "";
+                    document.getElementById("kpi-end-date").value = "";
                     
                     // DON'T auto-load KPI data - wait for user to enter dates and click button
                 }
@@ -609,7 +387,10 @@
                             item.className = "transaction-item";
                             item.innerHTML = "<strong>Shipment #" + data.shipping[i].ShipmentID + "</strong><br>" +
                                            "Product: " + data.shipping[i].Product + "<br>" +
-                                           "Promised Date: " + data.shipping[i].PromisedDate;
+                                           "From: " + data.shipping[i].SourceCompany + " -> To: " + data.shipping[i].DestinationCompany + "<br>" +
+                                           "Promised: " + data.shipping[i].PromisedDate + 
+                                           (data.shipping[i].ActualDate ? " | Actual: " + data.shipping[i].ActualDate : "") + "<br>" +
+                                           "Quantity: " + data.shipping[i].Quantity;
                             shippingList.appendChild(item);
                         }
                     } else {
@@ -627,7 +408,9 @@
                             item.className = "transaction-item";
                             item.innerHTML = "<strong>Receipt #" + data.receiving[i].ReceivingID + "</strong><br>" +
                                            "Product: " + data.receiving[i].Product + "<br>" +
-                                           "Received Date: " + data.receiving[i].ReceivedDate;
+                                           "Company: " + data.receiving[i].Company + "<br>" +
+                                           "Received: " + data.receiving[i].ReceivedDate + "<br>" +
+                                           "Quantity: " + data.receiving[i].Quantity;
                             receivingList.appendChild(item);
                         }
                     } else {
@@ -643,9 +426,12 @@
                         for(var i = 0; i < data.adjustments.length; i++) {
                             var item = document.createElement("div");
                             item.className = "transaction-item";
-                            item.innerHTML = "<strong>Inventory Adjustment</strong><br>" +
+                            item.innerHTML = "<strong>Adjustment #" + data.adjustments[i].AdjustmentID + "</strong><br>" +
                                            "Product: " + data.adjustments[i].Product + "<br>" +
-                                           "Date: " + data.adjustments[i].Date;
+                                           "Company: " + data.adjustments[i].Company + "<br>" +
+                                           "Date: " + data.adjustments[i].Date + "<br>" +
+                                           "Change: " + (data.adjustments[i].QuantityChange > 0 ? "+" : "") + data.adjustments[i].QuantityChange + "<br>" +
+                                           "Reason: " + data.adjustments[i].Reason;
                             adjustmentsList.appendChild(item);
                         }
                     } else {
@@ -668,10 +454,10 @@
         }
 
         // =====================================================================
-        // UPDATE TRANSACTIONS WITH DATE FILTER
+        // FILTER TRANSACTIONS BY DATE RANGE
         // =====================================================================
-        // This function is called when the user clicks "Update Transaction Data"
-        function updateTransactions() {
+        // This function is called when the user clicks "Filter by Date"
+        function filterTransactionsByDate() {
             // Make sure a company is selected first
             if(!currentCompanyId) {
                 alert("Please select a company first");
@@ -690,6 +476,28 @@
             
             // Load transaction data with date filtering
             loadTransactionData(currentCompanyId, startDate, endDate);
+        }
+
+        // =====================================================================
+        // UPDATE TRANSACTIONS (for future use)
+        // =====================================================================
+        // This function is called when the user clicks "Update Transaction Data" at the bottom
+        function updateTransactions() {
+            if(!currentCompanyId) {
+                alert("Please select a company first");
+                return;
+            }
+            
+            // TODO: Add functionality for updating transaction data in database
+            // For now, just reload the current transaction data
+            var startDate = document.getElementById("transaction-start-date").value;
+            var endDate = document.getElementById("transaction-end-date").value;
+            
+            if(startDate && endDate) {
+                loadTransactionData(currentCompanyId, startDate, endDate);
+            } else {
+                alert("Please filter by date first using the 'Filter by Date' button");
+            }
         }
 
         // =====================================================================
@@ -805,33 +613,17 @@
                         };
                         
                         var financialLayout = {
-                            margin: { t: 5, r: 10, b: 25, l: 35 },
-                            xaxis: { title: '' },
+                            margin: { t: 5, r: 10, b: 40, l: 35 },
+                            xaxis: { 
+                                title: '',
+                                tickangle: -45,
+                                tickfont: { size: 10 }
+                            },
                             yaxis: { title: 'Health Score' },
-                            height: 150
+                            height: 140
                         };
                         
                         Plotly.newPlot('financial-graph', [financialTrace], financialLayout, {displayModeBar: false});
-                    }
-                    
-                    // ===== CREATE DISRUPTION EVENTS GRAPH =====
-                    if(data.disruptionTrend && data.disruptionTrend.length > 0) {
-                        var disruptionTrace = {
-                            x: data.disruptionTrend.map(function(item) { return item.month; }),
-                            y: data.disruptionTrend.map(function(item) { return item.count; }),
-                            type: 'scatter',
-                            mode: 'lines',
-                            line: { color: '#ef4444', width: 2 }
-                        };
-                        
-                        var disruptionLayout = {
-                            margin: { t: 5, r: 10, b: 25, l: 35 },
-                            xaxis: { title: '' },
-                            yaxis: { title: 'Event Count' },
-                            height: 150
-                        };
-                        
-                        Plotly.newPlot('disruption-graph', [disruptionTrace], disruptionLayout, {displayModeBar: false});
                     }
                     
                     // ===== UPDATE EVENT LIST =====
@@ -841,7 +633,9 @@
                         for(var i = 0; i < data.events.length; i++) {
                             var eventItem = document.createElement("div");
                             eventItem.className = "event-list-item";
-                            eventItem.textContent = "· " + data.events[i].name + " (" + data.events[i].date + ")";
+                            // Clean up corrupted characters from event names
+                            var cleanName = data.events[i].name.replace(/â€¢/g, '').replace(/â€"/g, '-').trim();
+                            eventItem.textContent = cleanName + " (" + data.events[i].date + ") - Impact: " + data.events[i].impact;
                             eventList.appendChild(eventItem);
                         }
                     } else {
@@ -864,31 +658,6 @@
         }
 
         // =====================================================================
-        // UPDATE KPIs WITH DATE FILTER
-        // =====================================================================
-        // This function is called when the user clicks "Update KPI Data"
-        function updateKPIs() {
-            // Make sure a company is selected first
-            if(!currentCompanyId) {
-                alert("Please select a company first");
-                return;
-            }
-            
-            // Get the date values from the input fields
-            var startDate = document.getElementById("kpi-start-date").value;
-            var endDate = document.getElementById("kpi-end-date").value;
-            
-            // Make sure both dates are selected
-            if(!startDate || !endDate) {
-                alert("Please select both start and end dates");
-                return;
-            }
-            
-            // Load KPI data with date filtering
-            loadKPIData(currentCompanyId, startDate, endDate);
-        }
-
-        // =====================================================================
         // PAGE LOAD - CLEAR ALL FIELDS
         // =====================================================================
         // This runs when the page first loads
@@ -906,6 +675,7 @@
             document.getElementById("dependencies").value = "";
             document.getElementById("financial-status").value = "";
             document.getElementById("capacity").value = "";
+            document.getElementById("routes-operated").value = "";
             document.getElementById("products").value = "";
             document.getElementById("product-diversity").value = "";
             searchInput.value = "";
@@ -930,7 +700,6 @@
             
             // Clear graphs
             document.getElementById("financial-graph").innerHTML = "";
-            document.getElementById("disruption-graph").innerHTML = "";
         };
     </script>
 
