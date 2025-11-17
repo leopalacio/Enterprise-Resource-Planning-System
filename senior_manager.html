@@ -2,19 +2,56 @@
 <html>
 <head>
   <title>Senior Manager Module</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
-  <ul class="nav-tabs">
-    <li><a href="senior_manager.html">Senior Module</a></li>
-    <li><a href="company.html">Company Information</a></li>
-    <li><a href="disruptions.html">Disruptions</a></li>
-    <li><a href="transactions.html">Transactions</a></li>
-    <li><a href="index.html">Logout</a></li>
-  </ul>
+<nav>
+  <div class="nav-links">
+      <a href="senior_manager.html">Senior Module</a>
+      <a href="company.html">Company Information</a>
+      <a href="disruptions.html">Disruption Events</a>
+      <a href="transactions.html">Transactions</a>
+      <a href="index.html">Logout</a>
+  </div>
+</nav>
 
   <div align="center">
     <h2>Senior Manager Module</h2>
   </div>
+
+  <!-- added this --> 
+
+   <div align="center" id="companyList">
+    <p>Loading company data...</p>
+  </div>
+
+  <script>
+    // Fetch from your PHP file
+    fetch("senior_manager.php")
+      .then(res => res.json())
+      .then(data => {
+        const div = document.getElementById("companyList");
+        div.innerHTML = ""; // clear loading text
+
+        if (data.error) {
+          div.textContent = "Database connection failed.";
+          return;
+        }
+
+        // Display results
+        data.forEach(company => {
+          const p = document.createElement("p");
+          p.textContent = `${company.CompanyID}: ${company.CompanyName}`;
+          div.appendChild(p);
+        });
+      })
+      .catch(err => {
+        document.getElementById("companyList").textContent = "Error fetching data.";
+        console.error(err);
+      });
+  </script>
+
+  
+
 </body>
 </html>
