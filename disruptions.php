@@ -44,6 +44,7 @@ if(isset($_GET['action']) && $_GET['action'] == 'company_search') {
     // Send the results back as JSON
     header('Content-Type: application/json');
     echo json_encode($companies);
+    exit;
 }
 
 // ============================================================================
@@ -77,6 +78,7 @@ if(isset($_GET['action']) && $_GET['action'] == 'region_search') {
     // Send the results back as JSON
     header('Content-Type: application/json');
     echo json_encode($regions);
+    exit; 
 }
 
 // ============================================================================
