@@ -1,98 +1,120 @@
 <?php
-// --- Step 1: Connect to your Purdue MySQL database ---
-$servername = "mydb.itap.purdue.edu";
-$username = "g1151928"; // your Purdue MySQL username
-$password = "JuK3J593"; // <-- replace this with your Purdue MySQL password
-$dbname = "g1151928"; // your database name (same as your username)
+session_start();
+if(!isset($_SESSION['role'])) {
+    header("Location: index.php");
+    exit();
+}
 
-// Create connection
+// Output buffering - captures all output so we can control when it's sent to browser
+// This prevents "headers already sent" errors if there's any accidental output
+// Source: https://www.php.net/manual/en/function.ob-start.php
+ob_start();
+
+// Set timezone to match Indiana time (Purdue is in Indianapolis)
+// Source: https://www.php.net/manual/en/function.date-default-timezone-set.php
+date_default_timezone_set('America/Indiana/Indianapolis');
+
+// Turn off error display for production (errors would break our JSON response)
+ini_set('display_errors', 0);
+error_reporting(0);
+
+// Database connection info - this pattern is from the PHP lab materials
+$servername = "mydb.itap.purdue.edu";
+$username = "g1151928";
+$password = "JuK3J593";
+$dbname = "g1151928";
+
+// Create connection to MySQL database using mysqli
+// This mysqli_connect pattern is from the PHP lab (test.php example)
 $conn = mysqli_connect($servername, $username, $password, $dbname);
 
-// Check connection
+// Set character encoding to handle special characters properly
+// Source: https://www.php.net/manual/en/mysqli.set-charset.php
+mysqli_set_charset($conn, "utf8mb4");
+
+// Check if connection failed - from PHP lab materials
 if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
+    ob_clean(); // Clear any output buffer
+    header('Content-Type: application/json');
+    die(json_encode(["error" => "Connection failed: " . mysqli_connect_error()]));
 }
 
 // ============================================================================
 // HANDLE COMPANY SEARCH REQUEST (when user types in search box)
 // ============================================================================
-if(isset($_GET['action']) && $_GET['action'] == 'company_search') {
-    // Get the search term from the URL and make it safe for SQL
-    $searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
-    
-    // Search for companies matching the search term
+if (isset($_GET['action']) && $_GET['action'] == 'company_search') {
+
+    $searchTerm = mysqli_real_escape_string($conn,isset($_GET['query']) ? $_GET['query'] : '');
+
     $sql = "SELECT CompanyID, CompanyName 
             FROM Company 
             WHERE CompanyName LIKE '%" . $searchTerm . "%' 
             ORDER BY CompanyName 
             LIMIT 10";
-    
-    // Run the query
+
     $result = mysqli_query($conn, $sql);
-    
-    // Check if query failed
-    if(!$result) {
-        die(json_encode(["error" => "Query failed: " . mysqli_error($conn)]));
+
+    if (!$result) {
+        ob_clean();
+        header("Content-Type: application/json");
+        echo json_encode(["error" => "Query failed: " . mysqli_error($conn)]);
+        exit();
     }
-    
-    // Put all matching companies into an array
+
     $companies = [];
-    while($row = mysqli_fetch_assoc($result)) {
+    while ($row = mysqli_fetch_assoc($result)) {
         $companies[] = $row;
     }
-    
-    // Send the results back as JSON
-    header('Content-Type: application/json');
+
+    ob_clean();
+    header("Content-Type: application/json");
     echo json_encode($companies);
-    exit;
+    exit();
 }
 
 // ============================================================================
 // HANDLE REGION SEARCH REQUEST (when user types in search box)
 // ============================================================================
-if(isset($_GET['action']) && $_GET['action'] == 'region_search') {
-    // Get the search term from the URL and make it safe for SQL
-    $searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
-    
-    // Search for regions matching the search term
+elseif (isset($_GET['action']) && $_GET['action'] == 'region_search') {
+
+    $searchTerm = mysqli_real_escape_string($conn,isset($_GET['query']) ? $_GET['query'] : '');
+
     $sql = "SELECT DISTINCT ContinentName 
             FROM Location 
             WHERE ContinentName LIKE '%" . $searchTerm . "%' 
             ORDER BY ContinentName 
             LIMIT 10";
-    
-    // Run the query
+
     $result = mysqli_query($conn, $sql);
-    
-    // Check if query failed
-    if(!$result) {
-        die(json_encode(["error" => "Query failed: " . mysqli_error($conn)]));
+
+    if (!$result) {
+        ob_clean();
+        header("Content-Type: application/json");
+        echo json_encode(["error" => "Query failed: " . mysqli_error($conn)]);
+        exit();
     }
-    
-    // Put all matching regions into an array
+
     $regions = [];
-    while($row = mysqli_fetch_assoc($result)) {
+    while ($row = mysqli_fetch_assoc($result)) {
         $regions[] = $row;
     }
-    
-    // Send the results back as JSON
-    header('Content-Type: application/json');
+
+    ob_clean();
+    header("Content-Type: application/json");
     echo json_encode($regions);
-    exit; 
+    exit();
 }
 
 // ============================================================================
-// HANDLE DISRUPTION DATA REQUEST (when user selects a company or filters by date)
+// HANDLE DISRUPTION DATA REQUEST (when user selects a company or applies filters)
 // ============================================================================
-  elseif(isset($_GET['action']) && $_GET['action'] == 'disruptions') {
-    
-    // Get the company ID from the URL
-    $company_id = mysqli_real_escape_string($conn, $_GET['company']);
-    
-    // Get date range if provided (optional - user may or may not filter by date)
+elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
+
+    $company_id = mysqli_real_escape_string($conn,isset($_GET['company']) ? $_GET['company'] : '');
+
     $start_date = isset($_GET['start_date']) ? mysqli_real_escape_string($conn, $_GET['start_date']) : '';
-    $end_date = isset($_GET['end_date']) ? mysqli_real_escape_string($conn, $_GET['end_date']) : '';
-  }
+    $end_date   = isset($_GET['end_date'])   ? mysqli_real_escape_string($conn, $_GET['end_date'])   : '';
+}
 
 // ========================================================================
 // DISRUPTION QUERY 1: FREQUENCY PER COMPANY
@@ -336,7 +358,7 @@ $sql_companyde = "SELECT c.CompanyName, COUNT(*) AS TotalDisruptions, SUM(ic.Imp
                   FROM DisruptionEvent de 
                   INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID 
                   INNER JOIN Company c ON c.CompanyID = ic.AffectedCompanyID 
-                  WHERE de.EventDate 
+                  WHERE de.EventDate IS NOT NULL
                   GROUP BY c.CompanyName 
                   ORDER BY ExposureScore DESC";
     
@@ -346,6 +368,80 @@ $result_companyde = mysqli_query($conn, $sql_companyde);
     }
 $companyde_data = mysqli_fetch_assoc($result_companyde);
 $companyde_rate = $companyde_data && $companyde_data['CompanyDE'] !== null ? round($companyde_data['CompanyDE'], 0) : null;
+
+// ========================================================================
+// RETURNING A SINGLE STRUCTURED JSON OBJECT
+// ========================================================================
+// Return a single structured JSON object
+$response = [
+    "df" => [
+        "names"  => [], 
+        "values" => []
+    ],
+    "art" => [
+        "values" => []
+    ],
+    "hdr" => [
+        "names"  => [],
+        "values" => []
+    ],
+    "td" => [
+        "values" => []
+    ],
+    "rrc" => [
+        "names"  => [],
+        "values" => []
+    ],
+    "dsd" => [
+        "names"  => [],
+        "low"    => [],
+        "medium" => [],
+        "high"   => []
+    ]
+];
+
+// Re-run the queries and populate $response instead of fetch_assoc()
+mysqli_data_seek($result_companyfrequency, 0);
+while ($row = mysqli_fetch_assoc($result_companyfrequency)) {
+    $response["df"]["names"][]  = $row["CompanyName"];
+    $response["df"]["values"][] = $row["DisruptionCount"];
+}
+
+mysqli_data_seek($result_companyart, 0);
+while ($row = mysqli_fetch_assoc($result_companyart)) {
+    $response["art"]["values"][] = $row["AvgRecoveryDays"];
+}
+
+mysqli_data_seek($result_companyhdr, 0);
+while ($row = mysqli_fetch_assoc($result_companyhdr)) {
+    $response["hdr"]["names"][]  = $row["CompanyName"];
+    $response["hdr"]["values"][] = $row["HighImpactRate"];
+}
+
+mysqli_data_seek($result_suppliertd, 0);
+while ($row = mysqli_fetch_assoc($result_suppliertd)) {
+    $response["td"]["values"][] = $row["TotalDowntimeDays"];
+}
+
+mysqli_data_seek($result_rrc, 0);
+while ($row = mysqli_fetch_assoc($result_rrc)) {
+    $response["rrc"]["names"][]  = $row["ContinentName"];
+    $response["rrc"]["values"][] = $row["RegionRisk"];
+}
+
+mysqli_data_seek($result_companydsd, 0);
+while ($row = mysqli_fetch_assoc($result_companydsd)) {
+    $response["dsd"]["names"][]  = $row["CompanyName"];
+    $response["dsd"]["low"][]    = $row["LowImpact"];
+    $response["dsd"]["medium"][] = $row["MediumImpact"];
+    $response["dsd"]["high"][]   = $row["HighImpact"];
+}
+
+// Output JSON
+ob_clean();
+header("Content-Type: application/json");
+echo json_encode($response);
+exit();
 
 $conn->close();
 ?> 
