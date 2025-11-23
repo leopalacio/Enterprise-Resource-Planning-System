@@ -3,43 +3,41 @@
 <head>
     <title>Disruption Analysis Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=3">
+    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=4">
 </head>
 <body>
 
 <nav>
-  <!-- Navigation Links -->
   <div class="nav-links">
       <a href="company.html">Company Information</a>
       <a href="disruptions.html">Disruption Events</a>
       <a href="transactions.html">Transactions</a>
       <button onclick="logout()">Log Out</button>
-        <script> // to use confirm source: https://www.w3schools.com/jsref/met_win_confirm.asp
+        <script>
         function logout() {
             let answer = confirm("Are you sure you want to log out?");
             if (answer) {
-                // Redirect or run your logout code
                 window.location.href = "index.html"; 
             }
         }
         </script>
   </div>
 
-  <!-- Company search box with dropdown -->
-  <div class="search-box">
-      <input type="text" id="company-search-input" placeholder="Search Company" autocomplete="off">
-      <div class="search-results company-search-results" id="company-search-results"></div>
+  <div style="flex-grow: 1;"></div>
+  
+  <!-- Company search box -->
+  <div class="search-box-two" style="position: relative;">
+    <input type="text" id="company-search-input" placeholder="Search Company" autocomplete="off" style="height: 34px;">
+    <div class="search-results" id="company-search-results"></div>
   </div>
 
-  <!-- Region search box with dropdown -->
-  <div class="search-box">
-      <input type="text" id="region-search-input" placeholder="Search Region" autocomplete="off">
-      <div class="search-results region-search-results" id="region-search-results"></div>
+  <!-- Region search box -->
+  <div class="search-box-two" style="position: relative;">
+    <input type="text" id="region-search-input" placeholder="Search Region" autocomplete="off" style="height: 34px;">
+    <div class="search-results" id="region-search-results"></div>
   </div>
 
-  <!-- Tier filter (NOTE: id is tier-filter, not tier-level to avoid confusion) -->
+  <!-- Tier filter -->
   <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
     <select id="tier-filter" style="height: 34px;">
         <option value="">Tier level</option>
@@ -48,24 +46,17 @@
         <option value="3">3</option>
     </select>
 
-    <!--Date Range Filters-->
     <input type="date" id="disruption-start-date"
            style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
 
     <input type="date" id="disruption-end-date"
            style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
 
-    <!--Apply Filters Button-->
-    <button class="btn"
-            onclick="applyFilters()"
-            style="height: 34px; padding: 0 15px;">
+    <button class="btn" onclick="applyFilters()" style="height: 34px; padding: 0 15px;">
         Apply Filters
     </button>
 
-    <!--Clear Filters Button-->
-    <button class="btn"
-            onclick="clearFilters()"
-            style="height: 34px; padding: 0 15px;">
+    <button class="btn" onclick="clearFilters()" style="height: 34px; padding: 0 15px;">
         Clear Filters
     </button>
   </div>
@@ -75,125 +66,95 @@
   <h1 class="page-title">Disruption Analysis Dashboard</h1>
 
   <div class="dashboard-grid">
-    <!-- COLUMN 1, BOX 1: DF -->
+    <!-- DF -->
     <div class="card">
       <h2 class="card-title">Disruption Frequency (DF)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">Disruption Frequency</div>
-        <div class="formula-block">
-          \( DF = \frac{N_{disruptions}}{T} \)
-        </div>
-        <div class="plot-instruction">
-          Plot by company as <b>bar chart</b>
-        </div>
-        <div id="df-bar" class="graph-container"></div>
-      </div>
+      <div id="df-bar" class="graph-container"></div>
     </div>
 
-    <!-- COLUMN 2, BOX 1: ART -->
+    <!-- ART -->
     <div class="card">
       <h2 class="card-title">Average Recovery Time (ART)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">Average Recovery Time</div>
-        <div class="formula-block">
-          \( ART = \frac{1}{N}\sum_{i=1}^N (t^{rec}_i - t^{event}_i) \)
-        </div>
-        <div class="plot-instruction">
-          Plot as <b>histogram</b>
-        </div>
-        <div id="art-histogram" class="graph-container"></div>
-      </div>
+      <div id="art-histogram" class="graph-container"></div>
     </div>
 
-    <!-- COLUMN 3, BOX 1: HDR -->
+    <!-- HDR -->
     <div class="card">
       <h2 class="card-title">High-Impact Disruption Rate (HDR)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">High-Impact Disruption Rate</div>
-        <div class="formula-block">
-          \( HDR = \frac{N_{high\,impact}}{N_{disruptions}}\times100\% \)
-        </div>
-        <div class="plot-instruction">
-          Share of disruptions classified as “high severity”
-        </div>
-        <!-- add a container for your HDR plot -->
-        <div id="hdr-bar" class="graph-container"></div>
-      </div>
+      <div id="hdr-bar" class="graph-container"></div>
     </div>
 
-    <!-- COLUMN 1, BOX 2: TD -->
+    <!-- TD -->
     <div class="card">
       <h2 class="card-title">Total Downtime (TD)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">Total Downtime</div>
-        <div class="formula-block">
-          \( TD = \sum_{i=1}^{N}(t^{rec}_i - t^{event}_i) \)
-        </div>
-        <div class="plot-instruction">
-          Plot as <b>histogram</b>
-        </div>
-        <div id="td-histogram" class="graph-container"></div>
-      </div>
+      <div id="td-histogram" class="graph-container"></div>
     </div>
 
-    <!-- COLUMN 2, BOX 2: RRC -->
+    <!-- RRC -->
     <div class="card">
       <h2 class="card-title">Regional Risk Concentration (RRC)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">Regional Risk Concentration</div>
-        <div class="formula-block">
-          \( RRC_r = \frac{N_{disruptions, r}}{N_{disruptions, total}} \)
-        </div>
-        <div class="plot-instruction">
-          Plot as <b>heatmap</b>
-        </div>
-        <div id="rrc-heatmap" class="graph-container"></div>
-      </div>
+      <div id="rrc-heatmap" class="graph-container"></div>
     </div>
 
-    <!-- COLUMN 3, BOX 2: DSD -->
+    <!-- DSD -->
     <div class="card">
       <h2 class="card-title">Disruption Severity Distribution (DSD)</h2>
-      <div class="kpi-metric">
-        <div class="kpi-label">Disruption Severity Distribution</div>
-        <div class="plot-instruction">
-          Plot as <b>stacked bar chart</b>
-        </div>
-        <div id="dsd-bar" class="graph-container"></div>
-      </div>
+      <div id="dsd-bar" class="graph-container"></div>
     </div>
   </div>
 </div>
 
-<!-- ========================= COMBINED JS =============================== -->
+<!-- ==================== FULL-SCREEN PLOT VIEW ==================== -->
+ <div id="plot-modal" class="plot-modal">
+  <div class="plot-modal-content"></div>
+    <span id="plot-modal-close" class="plot-modal-close">&times;</span>
+    <div id="plot-modal-inner"></div>
+  </div>
+ </div>
+ 
 <script>
-  // STATE FOR CURRENT FILTERS
-  let currentCompanyId   = null;
-  let currentCompanyName = "";
-  let currentRegion      = "";
-  let currentTier        = "";
+// ===================== WAIT FOR PAGE TO LOAD =====================
+document.addEventListener('DOMContentLoaded', function () {
+  console.log("Page loaded, initializing search functionality...");
+});
+  // ===================== STATE VARIABLES =====================
+  var currentCompanyId = null;
+  var currentCompanyName = '';
+  var currentRegion = '';
+  var currentTier = '';
 
-  // Grab DOM elements (note the IDs match the HTML above)
-  const companyInput   = document.getElementById("company-search-input");
-  const companyResults = document.getElementById("company-search-results");
-  const regionInput    = document.getElementById("region-search-input");
-  const regionResults  = document.getElementById("region-search-results");
-  const tierSelect     = document.getElementById("tier-filter");
+  // ===================== GET DOM ELEMENTS =====================
+  var companyInput = document.getElementById("company-search-input");
+  var companyResults = document.getElementById("company-search-results");
+  var regionInput = document.getElementById("region-search-input");
+  var regionResults = document.getElementById("region-search-results");
+  var tierSelect = document.getElementById("tier-filter");
 
-  // ----------------- Generic AJAX helper -----------------
-  function ajaxGet(url, onSuccess) {
-    const xhr = new XMLHttpRequest();
+  console.log("Elements found:", {
+    companyInput: !!companyInput,
+    companyResults: !!companyResults,
+    regionInput: !!regionInput,
+    regionResults: !!regionResults
+  });
+
+  // ===================== AJAX HELPER FUNCTION =====================
+  function ajaxGet(url, onSuccess, onError) {
+    console.log("AJAX GET:", url);
+    var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
         if (xhr.status === 200) {
           try {
-            const data = JSON.parse(xhr.responseText);
+            var data = JSON.parse(xhr.responseText);
+            console.log("Success:", data);
             onSuccess(data);
           } catch (e) {
             console.error("JSON parse error:", e, xhr.responseText);
+            if (onError) onError(e);
           }
         } else {
-          console.error("XHR error:", xhr.status, xhr.statusText);
+          console.error("HTTP error:", xhr.status, xhr.statusText);
+          if (onError) onError(new Error("HTTP " + xhr.status));
         }
       }
     };
@@ -201,153 +162,76 @@
     xhr.send();
   }
 
-  // ----------------- COMPANY SEARCH -----------------
- if (companyInput && companyResults) {
-  companyInput.addEventListener("focus", function () {
-    loadAllCompanies();
-  });
-
-  // Filter companies while user types
-  companyInput.addEventListener("input", function () {
-    const searchTerm = companyInput.value.trim();
-
-    if (searchTerm.length < 1) {
-      loadAllCompanies();
-      return;
-    }
-
-    const xhttp = new XMLHttpRequest();
-    xhttp.onload = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        try {
-          const data = JSON.parse(this.responseText);
-          displayCompanies(data);
-        } catch (e) {
-          console.error("Company parse error:", e);
-        }
-      }
-    };
-    xhttp.open(
-      "GET",
-      "disruptions.php?action=company_search&query=" +
-        encodeURIComponent(searchTerm),
-      true
-    );
-    xhttp.send();
-  });
-}
-
-// Load all companies (empty query)
-function loadAllCompanies() {
-  const xhttp = new XMLHttpRequest();
-  xhttp.onload = function () {
-    if (this.readyState === 4 && this.status === 200) {
-      try {
-        const data = JSON.parse(this.responseText);
-        displayCompanies(data);
-      } catch (e) {
-        console.error("Company parse error:", e);
-      }
-    }
-  };
-  xhttp.open("GET", "disruptions.php?action=company_search&query=", true);
-  xhttp.send();
-}
-
-// Render companies into dropdown
-function displayCompanies(data) {
-  companyResults.innerHTML = "";
+  // ===================== COMPANY SEARCH =====================
+  function displayCompanies(data) {
+    console.log("Displaying companies:", data);
+    companyResults.innerHTML = "";
 
     if (!data || data.error || data.length === 0) {
-    companyResults.innerHTML =
-      '<div class="no-results">No companies found</div>';
-  companyResults.classList.add("show");
+      companyResults.innerHTML = '<div class="no-results">No companies found</div>';
+      companyResults.classList.add("show");
       return;
     }
 
-    for (let i = 0; i < data.length; i++) {
-      const item = document.createElement("div");
+    for (var i = 0; i < data.length; i++) {
+      var item = document.createElement("div");
       item.className = "search-result-item";
       item.textContent = data[i].CompanyName;
-    item.setAttribute("data-id", data[i].CompanyID);
+      item.setAttribute("data-id", data[i].CompanyID);
 
       item.onclick = function () {
         currentCompanyId = this.getAttribute("data-id");
         currentCompanyName = this.textContent;
         companyInput.value = currentCompanyName;
         companyResults.classList.remove("show");
-    };
+        console.log("Company selected:", currentCompanyName, currentCompanyId);
+      };
 
       companyResults.appendChild(item);
     }
     companyResults.classList.add("show");
   }
 
-  // ----------------- REGION SEARCH -----------------
- if (regionInput && regionResults) {
-  regionInput.addEventListener("focus", function () {
-    loadAllRegions();
-  });
+  function loadAllCompanies() {
+    console.log("Loading all companies...");
+    ajaxGet("disruptions.php?action=company_search&query=", displayCompanies);
+  }
 
-  regionInput.addEventListener("input", function () {
-    const searchTerm = regionInput.value.trim();
+  if (companyInput) {
+    companyInput.addEventListener("focus", function () {
+      console.log("Company input focused");
+      loadAllCompanies();
+    });
 
-    if (searchTerm.length < 1) {
-      loadAllRegions();
+    companyInput.addEventListener("input", function () {
+      var searchTerm = companyInput.value.trim();
+      console.log("Company search term:", searchTerm);
+
+      if (searchTerm.length < 1) {
+        loadAllCompanies();
+        return;
+      }
+
+      ajaxGet(
+        "disruptions.php?action=company_search&query=" + encodeURIComponent(searchTerm),
+        displayCompanies
+      );
+    });
+  }
+
+  // ===================== REGION SEARCH =====================
+  function displayRegions(data) {
+    console.log("Displaying regions:", data);
+    regionResults.innerHTML = "";
+
+    if (!data || data.error || data.length === 0) {
+      regionResults.innerHTML = '<div class="no-results">No regions found</div>';
+      regionResults.classList.add("show");
       return;
     }
 
-    const xhttp = new XMLHttpRequest();
-    xhttp.onload = function () {
-      if (this.readyState === 4 && this.status === 200) {
-        try {
-          const data = JSON.parse(this.responseText);
-          displayRegions(data);
-        } catch (e) {
-          console.error("Region parse error:", e);
-        }
-      }
-    };
-    xhttp.open(
-      "GET",
-      "disruptions.php?action=region_search&query=" +
-        encodeURIComponent(searchTerm),
-      true
-    );
-    xhttp.send();
-  });
-}
-
-// Load all regions (empty query)
-function loadAllRegions() {
-  const xhttp = new XMLHttpRequest();
-  xhttp.onload = function () {
-    if (this.readyState === 4 && this.status === 200) {
-      try {
-        const data = JSON.parse(this.responseText);
-        displayRegions(data);
-      } catch (e) {
-        console.error("Region parse error:", e);
-      }
-    }
-  };
-  xhttp.open("GET", "disruptions.php?action=region_search&query=", true);
-  xhttp.send();
-}
-
-// Render regions into dropdown
-function displayRegions(data) {
-  regionResults.innerHTML = "";
-
-  if (!data || data.error || data.length === 0) {
-    regionResults.innerHTML =
-     '<div class="no-results">No regions found</div>';
-    regionResults.classList.add("show");   
-       return;
-    }
-
-    for (let i = 0; i < data.length; i++) {
-      const item = document.createElement("div");
+    for (var i = 0; i < data.length; i++) {
+      var item = document.createElement("div");
       item.className = "search-result-item";
       item.textContent = data[i].ContinentName;
 
@@ -355,6 +239,7 @@ function displayRegions(data) {
         currentRegion = this.textContent;
         regionInput.value = currentRegion;
         regionResults.classList.remove("show");
+        console.log("Region selected:", currentRegion);
       };
 
       regionResults.appendChild(item);
@@ -362,171 +247,261 @@ function displayRegions(data) {
     regionResults.classList.add("show");
   }
 
-  // ----------------- TIER LEVEL DROPDOWN -----------------
-  if (tierSelect) {
-    tierSelect.addEventListener("change", function () {
-      currentTier = this.value || "";
-      // trigger data reload if needed
-      // loadDisruptionData();
+  function loadAllRegions() {
+    console.log("Loading all regions...");
+    ajaxGet("disruptions.php?action=region_search&query=", displayRegions);
+  }
+
+  if (regionInput) {
+    regionInput.addEventListener("focus", function () {
+      console.log("Region input focused");
+      loadAllRegions();
+    });
+
+    regionInput.addEventListener("input", function () {
+      var searchTerm = regionInput.value.trim();
+      console.log("Region search term:", searchTerm);
+
+      if (searchTerm.length < 1) {
+        loadAllRegions();
+        return;
+      }
+
+      ajaxGet(
+        "disruptions.php?action=region_search&query=" + encodeURIComponent(searchTerm),
+        displayRegions
+      );
     });
   }
 
-  // ----------------- APPLY FILTERS -----------------
-  function applyFilters() {
-    const startDate = document.getElementById("disruption-start-date").value;
-    const endDate   = document.getElementById("disruption-end-date").value;
+  // ===================== CLOSE DROPDOWNS ON CLICK OUTSIDE =====================
+  document.addEventListener("click", function (event) {
+    if (companyInput && companyResults &&
+        !event.target.closest("#company-search-input") &&
+        !event.target.closest("#company-search-results")) {
+      companyResults.classList.remove("show");
+    }
+    
+    if (regionInput && regionResults &&
+        !event.target.closest("#region-search-input") &&
+        !event.target.closest("#region-search-results")) {
+      regionResults.classList.remove("show");
+    }
+  });
 
-    let params = "action=disruptions";
+  // ===================== TIER DROPDOWN =====================
+  if (tierSelect) {
+    tierSelect.addEventListener("change", function () {
+      currentTier = this.value || "";
+      console.log("Tier changed:", currentTier);
+    });
+  }
+
+  // ===================== APPLY FILTERS (GLOBAL) =====================
+  window.applyFilters = function () {
+    console.log("Applying filters...");
+    var startDate = document.getElementById("disruption-start-date").value;
+    var endDate = document.getElementById("disruption-end-date").value;
+
+    var params = "action=disruptions";
 
     if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId);
-    if (currentRegion)    params += "&region="  + encodeURIComponent(currentRegion);
-    if (currentTier)      params += "&tier="    + encodeURIComponent(currentTier);
-    if (startDate)        params += "&start_date=" + encodeURIComponent(startDate);
-    if (endDate)          params += "&end_date="   + encodeURIComponent(endDate);
+    if (currentRegion) params += "&region=" + encodeURIComponent(currentRegion);
+    if (currentTier) params += "&tier=" + encodeURIComponent(currentTier);
+    if (startDate) params += "&start_date=" + encodeURIComponent(startDate);
+    if (endDate) params += "&end_date=" + encodeURIComponent(endDate);
 
+    console.log("Filter params:", params);
     ajaxGet("disruptions.php?" + params, renderDisruptionData);
-  }
+  };
 
-  // ----------------- CLEAR FILTERS -----------------
-  function clearFilters() {
-    if (companyInput)companyInput.value = "";
-    if (regionInput)regionInput.value = "";
-    if (tierSelect)tierSelect.value = "";
-    const startDateInput = document.getElementById("disruption-start-date");
-    const endDateInput = document.getElementById("disruption-end-date");
+  // ===================== CLEAR FILTERS (GLOBAL) =====================
+  window.clearFilters = function () {
+    console.log("Clearing filters...");
+    if (companyInput) companyInput.value = "";
+    if (regionInput) regionInput.value = "";
+    if (tierSelect) tierSelect.value = "";
+
+    var startDateInput = document.getElementById("disruption-start-date");
+    var endDateInput = document.getElementById("disruption-end-date");
     if (startDateInput) startDateInput.value = "";
-    if (endDateInput)   endDateInput.value   = "";
+    if (endDateInput) endDateInput.value = "";
 
     if (companyResults) companyResults.classList.remove("show");
-    if (regionResults)  regionResults.classList.remove("show");
+    if (regionResults) regionResults.classList.remove("show");
 
-    currentCompanyId   = null;
+    currentCompanyId = null;
     currentCompanyName = "";
-    currentRegion      = "";
-    currentTier        = "";
-  }
+    currentRegion = "";
+    currentTier = "";
 
+    ajaxGet("disruptions.php?action=disruptions", renderDisruptionData);
+
+    console.log("Filters cleared.");
+  };
+
+  // ===================== RENDER DISRUPTION DATA =====================
   function renderDisruptionData(data) {
-    console.log("Disruption Data Returned:", data);
+    console.log("Rendering disruption data:", data);
 
     if (!data || data.error) {
-        console.error("Bad disruption data:", data);
-        return;
+      console.error("Bad disruption data:", data);
+      alert("Error loading data: " + (data.error || "Unknown error"));
+      return;
     }
 
-    // ================== DF BAR CHART ==================
-    if (data.df) {
-        Plotly.newPlot("df-bar", [{
-            x: data.df.names,
-            y: data.df.values,
-            type: "bar"
-        }], {
-            title: "Disruption Frequency by Company"
-        });
+    const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bars
+
+    // DF BAR
+    if (data.df && data.df.names.length > 0) {
+      const names = data.df.names.slice(0, MAX_COMPANIES);
+      const values = data.df.values.slice(0, MAX_COMPANIES);
+
+      Plotly.newPlot("df-bar", [{
+        x: values,
+        y: names,
+        type: "bar",
+        orientation: "h",
+        marker: { color: '#4a90e2' }
+      }], {
+        title: "Disruption Frequency by Company",
+        margin: { t: 40, r: 20, b: 100, l: 50 },
+        xaxis: { title: "Number of Disruptions" },
+        yaxis: { automargin: true }
+      });
     }
 
-    // ================== ART HISTOGRAM ==================
-    if (data.art) {
-        Plotly.newPlot("art-histogram", [{
-            x: data.art.values,
-            type: "histogram"
-        }], {
-            title: "Average Recovery Time (Days)"
-        });
+    // ART HISTOGRAM
+    if (data.art && data.art.values.length > 0) {
+      Plotly.newPlot("art-histogram", [{
+        x: data.art.values,
+        type: "histogram",
+        marker: { color: '#22c55e' }
+      }], {
+        title: "Average Recovery Time (Days)",
+        xaxis: { title: "Days" },
+        yaxis: { title: "Count" }
+      });
     }
 
-    // ================== HDR BAR ==================
-    if (data.hdr) {
-        Plotly.newPlot("hdr-bar", [{
-            x: data.hdr.names,
-            y: data.hdr.values,
-            type: "bar"
-        }], {
-            title: "High Impact Disruption Rate (%)"
-        });
+    // HDR BAR
+    if (data.hdr && data.hdr.names.length > 0) {
+      const names = data.hdr.names.slice(0, MAX_COMPANIES);
+      const values = data.hdr.values.slice(0, MAX_COMPANIES);
+
+      Plotly.newPlot("hdr-bar", [{
+        x: values,
+        y: names,
+        type: "bar",
+        orientation: "h",
+        marker: { color: '#fbbf24' }
+      }], {
+        title: "High Impact Disruption Rate (%)",
+        margin: { t: 40, r: 20, b: 100, l: 50 },
+        xaxis: { title: "Percentage (%)" },
+        yaxis: { automargin: true }
+      });
     }
 
-    // ================== TD HISTOGRAM ==================
-    if (data.td) {
-        Plotly.newPlot("td-histogram", [{
-            x: data.td.values,
-            type: "histogram"
-        }], {
-            title: "Total Downtime (Days)"
-        });
+    // TD HISTOGRAM
+    if (data.td && data.td.values.length > 0) {
+      Plotly.newPlot("td-histogram", [{
+        x: data.td.values,
+        type: "histogram",
+        marker: { color: '#ef4444' }
+      }], {
+        title: "Total Downtime (Days)",
+        xaxis: { title: "Days" },
+        yaxis: { title: "Count" }
+      });
     }
 
-    // ================== RRC HEATMAP ==================
-    if (data.rrc) {
-        Plotly.newPlot("rrc-heatmap", [{
-            z: data.rrc.values,
-            x: ["Risk %"],
-            y: data.rrc.names,
-            type: "heatmap",
-            colorscale: "Reds"
-        }], {
-            title: "Regional Risk Concentration"
-        });
+    // RRC HEATMAP
+    if (data.rrc && data.rrc.names.length > 0) {
+      Plotly.newPlot("rrc-heatmap", [{
+        z: [data.rrc.values],
+        x: data.rrc.names,
+        y: ["Risk %"],
+        type: "heatmap",
+        colorscale: "Reds"
+      }], {
+        title: "Regional Risk Concentration",
+        margin: { t: 40, r: 20, b: 80, l: 50 }
+      });
     }
 
-    // ================== DSD STACKED BAR ==================
-    if (data.dsd) {
-        Plotly.newPlot("dsd-bar", [
-            {
-                x: data.dsd.names,
-                y: data.dsd.low,
-                name: "Low",
-                type: "bar"
-            },
-            {
-                x: data.dsd.names,
-                y: data.dsd.medium,
-                name: "Medium",
-                type: "bar"
-            },
-            {
-                x: data.dsd.names,
-                y: data.dsd.high,
-                name: "High",
-                type: "bar"
-            }
-        ], {
-            barmode: "stack",
-            title: "Disruption Severity Distribution"
-        });
-    }
-}
+    // DSD STACKED BAR
+    if (data.dsd && data.dsd.names.length > 0) {
+      const names = data.dsd.names.slice(0, MAX_COMPANIES);
+      const low = data.dsd.low.slice(0, MAX_COMPANIES);
+      const medium = data.dsd.medium.slice(0, MAX_COMPANIES);
+      const high = data.dsd.high.slice(0, MAX_COMPANIES);
 
-// Verifying Senior Manager Role to show Senior Module Tab
-// Ask server for the role
-fetch('role.php')
-  .then(response => response.json())
-  .then(data => {
-// Proceed if user is Senior Manager
-  if (!data || data.role !== 'SeniorManager') {
-  return; // SupplyChainManager or not logged in -> no Senior tab
+      Plotly.newPlot("dsd-bar", [
+        {
+          x: low,
+          y: names,
+          name: "Low",
+          type: "bar",
+          orientation: "h",
+          marker: { color: '#22c55e' }
+        },
+        {
+          x: medium,
+          y: names,
+          name: "Medium",
+          type: "bar",
+          orientation: "h",
+          marker: { color: '#fbbf24' }
+        },
+        {
+          x: high,
+          y: names,
+          name: "High",
+          type: "bar",
+          orientation: "h",
+          marker: { color: '#ef4444' }
+        }
+      ], {
+        barmode: "stack",
+        title: "Disruption Severity Distribution",
+        margin: { t: 40, r: 20, b: 100, l: 50 },
+        xaxis: { title: "Number of Disruptions" },
+        yaxis: { automargin: true }
+      });
+    }
+
+    console.log("✅ All plots rendered!");
   }
 
-// Find the nav with the link
-  const navLinks = document.querySelector('.nav-links');
-  if (!navLinks) return;
+  // ===================== LOAD INITIAL DATA =====================
+  ajaxGet("disruptions.php?action=disruptions", renderDisruptionData);
 
-// Avoid doing it twice
-  if (document.getElementById('SeniorModuleTab')) return;
+  // ===================== SENIOR MANAGER TAB =====================
+  fetch('role.php')
+    .then(response => response.json())
+    .then(data => {
+      if (!data || data.role !== 'SeniorManager') {
+        return;
+      }
 
-// Create Senior Module link
-  const seniorLink = document.createElement('a');
-  seniorLink.id = 'SeniorModuleTab';
-  seniorLink.href = 'senior_manager.html';
-  seniorLink.textContent = 'Senior Module';
+      const navLinks = document.querySelector('.nav-links');
+      if (!navLinks) return;
 
-// Make it the first tab
-  navLinks.insertBefore(seniorLink, navLinks.firstChild);
-  })
-  .catch(err => {
-  console.error('Role check failed:', err);
-});
-    
+      if (document.getElementById('SeniorModuleTab')) return;
+
+      const seniorLink = document.createElement('a');
+      seniorLink.id = 'SeniorModuleTab';
+      seniorLink.href = 'senior_manager.html';
+      seniorLink.textContent = 'Senior Module';
+
+      navLinks.insertBefore(seniorLink, navLinks.firstChild);
+    })
+    .catch(err => {
+      console.error('Role check failed:', err);
+    })
+
 </script>
+
 </body>
 </html>
