@@ -1,38 +1,34 @@
 <?php
-// session_start();
-// if(!isset($_SESSION['role'])) {
-//     header("Location: index.php");
-//     exit();
-// }
-
-// Output buffering - captures all output so we can control when it's sent to browser
-// This prevents "headers already sent" errors if there's any accidental output
+// ==================================================================================
+// OUTPUT BUFFERING (captures all output so we can control when it's sent to browser)
+// ==================================================================================
 // Source: https://www.php.net/manual/en/function.ob-start.php
 ob_start();
 
-// Set timezone to match Indiana time (Purdue is in Indianapolis)
+// ==================================================================================
+// SET TIME ZONE, ERROR HANDLING, AND DATABASE CONNECTION
+// ==================================================================================
 // Source: https://www.php.net/manual/en/function.date-default-timezone-set.php
 date_default_timezone_set('America/Indiana/Indianapolis');
 
-// Turn off error display for production (errors would break our JSON response)
+// Source: https://www.php.net/manual/en/errorfunc.configuration.php, https://www.w3schools.com/php/func_error_reporting.asp
 ini_set('display_errors', 0);
 error_reporting(0);
 
-// Database connection info - this pattern is from the PHP lab materials
+// Source: PHP lab materials
 $servername = "mydb.itap.purdue.edu";
 $username   = "g1151928";
 $password   = "JuK3J593";
 $dbname     = "g1151928";
 
-// Create connection to MySQL database using mysqli
-// This mysqli_connect pattern is from the PHP lab (test.php example)
 $conn = mysqli_connect($servername, $username, $password, $dbname);
 
-// Set character encoding to handle special characters properly
+// ==================================================================================
+// CHARACTER ENCODING SETUP, CONNECTION TESTING
+// ==================================================================================
 // Source: https://www.php.net/manual/en/mysqli.set-charset.php
 mysqli_set_charset($conn, "utf8mb4");
 
-// Check if connection failed - from PHP lab materials
 if (!$conn) {
     ob_clean(); // Clear any output buffer
     header('Content-Type: application/json');
@@ -54,7 +50,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'company_search') {
     
     $result = mysqli_query($conn, $sql);
     
-    // Error handling for failed query
+    // Error handling for failed query, Source: https://www.php.net/manual/en/mysqli.query.php
     if(!$result) {
         ob_clean();
         header('Content-Type: application/json');
@@ -63,14 +59,14 @@ if (isset($_GET['action']) && $_GET['action'] == 'company_search') {
     
     $companies = [];
     while($row = mysqli_fetch_assoc($result)) {
-        $companies[] = $row; // Array push shorthand - adds row to end
+        $companies[] = $row; // Array push shorthand - adds row to end, Source: https://www.php.net/manual/en/function.array-push.php
     }
     
     ob_clean();
     header('Content-Type: application/json');
     echo json_encode($companies);
     mysqli_close($conn);
-    exit; // Stop script execution - important to prevent extra output
+    exit; // Stop script execution - important to prevent extra output, Source: https://www.php.net/manual/en/function.exit.php
 }
 
 // ============================================================================
@@ -79,7 +75,6 @@ if (isset($_GET['action']) && $_GET['action'] == 'company_search') {
 elseif (isset($_GET['action']) && $_GET['action'] == 'region_search') {
     $searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
     
-    // DISTINCT keyword - SQL for unique values only
     $sql = "SELECT DISTINCT ContinentName 
             FROM Location 
             WHERE ContinentName LIKE '%" . $searchTerm . "%' 
@@ -111,19 +106,15 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'region_search') {
 // ============================================================================
 elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
-    // --------------------------------------------------
-    // 1. Read filters from query string
-    // --------------------------------------------------
+    // 1. Read filters from query string, Source: https://www.php.net/manual/en/reserved.variables.get.php
     $company_id = isset($_GET['company'])    ? mysqli_real_escape_string($conn, $_GET['company'])    : '';
     $region     = isset($_GET['region'])     ? mysqli_real_escape_string($conn, $_GET['region'])     : '';
     $tier       = isset($_GET['tier'])       ? mysqli_real_escape_string($conn, $_GET['tier'])       : '';
     $start_date = isset($_GET['start_date']) ? mysqli_real_escape_string($conn, $_GET['start_date']) : '';
     $end_date   = isset($_GET['end_date'])   ? mysqli_real_escape_string($conn, $_GET['end_date'])   : '';
 
-    // --------------------------------------------------
-    // 2. Build ONE base WHERE clause using consistent aliases:
-    //    de = DisruptionEvent, ic = ImpactsCompany, c = Company, l = Location
-    // --------------------------------------------------
+    // 2. Build ONE base WHERE clause using consistent aliases, Source: https://www.php.net/manual/en/function.mysqli-real-escape-string.php
+    // de = DisruptionEvent, ic = ImpactsCompany, c = Company, l = Location
     $baseWhere = " WHERE 1=1";
 
     if ($company_id !== '') {
@@ -145,10 +136,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
     // These variants are used where recovery date is required
     $whereWithRecovery = $baseWhere . " AND de.EventRecoveryDate IS NOT NULL";
 
-    // --------------------------------------------------
-    // 3. Run the SIX queries that back your plots
-    //    (DF, ART, HDR, TD, RRC, DSD)
-    // --------------------------------------------------
+    // 3. Run the queries that update the plots, Source: https://www.php.net/manual/en/function.mysqli-query.php
 
     // 3.1 Disruption Frequency (DF) by company
     $sql_companyfrequency = "
@@ -160,7 +148,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $baseWhere
         GROUP BY c.CompanyID
         ORDER BY DisruptionCount DESC, c.CompanyName
-    ";
+        ";
     $result_companyfrequency = mysqli_query($conn, $sql_companyfrequency);
     if (!$result_companyfrequency) {
         ob_clean();
@@ -172,9 +160,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
     // 3.2 Average Recovery Time (ART) per company (for histogram)
     $sql_companyart = "
-        SELECT 
-            c.CompanyName,
-            AVG(DATEDIFF(de.EventRecoveryDate, de.EventDate)) AS AvgRecoveryDays
+        SELECT c.CompanyName, AVG(DATEDIFF(de.EventRecoveryDate, de.EventDate)) AS AvgRecoveryDays
         FROM DisruptionEvent de
         INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
         INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
@@ -182,7 +168,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $whereWithRecovery
         GROUP BY c.CompanyID
         ORDER BY AvgRecoveryDays DESC, c.CompanyName
-    ";
+        ";
     $result_companyart = mysqli_query($conn, $sql_companyart);
     if (!$result_companyart) {
         ob_clean();
@@ -194,9 +180,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
     // 3.3 High-Impact Disruption Rate (HDR) by company
     $sql_companyhdr = "
-        SELECT 
-            c.CompanyName,
-            SUM(ic.ImpactLevel = 'High') / COUNT(*) * 100 AS HighImpactRate
+        SELECT c.CompanyName, SUM(ic.ImpactLevel = 'High') / COUNT(*) * 100 AS HighImpactRate
         FROM DisruptionEvent de
         INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
         INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
@@ -204,7 +188,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $baseWhere
         GROUP BY c.CompanyName
         ORDER BY HighImpactRate DESC, c.CompanyName
-    ";
+        ";
     $result_companyhdr = mysqli_query($conn, $sql_companyhdr);
     if (!$result_companyhdr) {
         ob_clean();
@@ -216,9 +200,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
     // 3.4 Total Downtime (TD) by company
     $sql_suppliertd = "
-        SELECT 
-            c.CompanyName,
-            SUM(DATEDIFF(de.EventRecoveryDate, de.EventDate)) AS TotalDowntimeDays
+        SELECT c.CompanyName, SUM(DATEDIFF(de.EventRecoveryDate, de.EventDate)) AS TotalDowntimeDays
         FROM DisruptionEvent de
         INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
         INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
@@ -226,7 +208,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $whereWithRecovery
         GROUP BY c.CompanyID
         ORDER BY TotalDowntimeDays DESC, c.CompanyName
-    ";
+        ";
     $result_suppliertd = mysqli_query($conn, $sql_suppliertd);
     if (!$result_suppliertd) {
         ob_clean();
@@ -238,9 +220,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
     // 3.5 Regional Risk Concentration (RRC) – we’ll convert counts to % in PHP
     $sql_rrc = "
-        SELECT 
-            l.ContinentName,
-            COUNT(*) AS DisruptionCount
+        SELECT l.ContinentName, COUNT(*) AS DisruptionCount
         FROM DisruptionEvent de
         INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
         INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
@@ -248,7 +228,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $baseWhere
         GROUP BY l.ContinentName
         ORDER BY DisruptionCount DESC, l.ContinentName
-    ";
+        ";
     $result_rrc = mysqli_query($conn, $sql_rrc);
     if (!$result_rrc) {
         ob_clean();
@@ -260,8 +240,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
     // 3.6 Disruption Severity Distribution (DSD) by company
     $sql_companydsd = "
-        SELECT 
-            c.CompanyName,
+        SELECT c.CompanyName,
             SUM(ic.ImpactLevel = 'Low')    AS LowImpact,
             SUM(ic.ImpactLevel = 'Medium') AS MediumImpact,
             SUM(ic.ImpactLevel = 'High')   AS HighImpact
@@ -272,7 +251,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $baseWhere
         GROUP BY c.CompanyName
         ORDER BY c.CompanyName
-    ";
+        ";
     $result_companydsd = mysqli_query($conn, $sql_companydsd);
     if (!$result_companydsd) {
         ob_clean();
@@ -282,9 +261,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         exit();
     }
 
-    // --------------------------------------------------
-    // 4. Build the single JSON response object
-    // --------------------------------------------------
+    // 4. Build the single JSON response object, Source: https://www.php.net/manual/en/function.json-encode.php
     $response = [
         "df"  => ["names" => [], "values" => []],
         "art" => ["names" => [], "values" => []],
@@ -299,7 +276,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         ]
     ];
 
-    // DF
+    // DF, Source: https://www.php.net/manual/en/function.mysqli-fetch-assoc.php
     while ($row = mysqli_fetch_assoc($result_companyfrequency)) {
         $response["df"]["names"][]  = $row["CompanyName"];
         $response["df"]["values"][] = (float)$row["DisruptionCount"];
@@ -323,7 +300,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $response["td"]["values"][] = (float)$row["TotalDowntimeDays"];
     }
 
-    // RRC – convert counts to percentages
+    // RRC – convert counts to percentages, Source: https://www.php.net/manual/en/control-structures.for.php
     $rrcNames  = [];
     $rrcCounts = [];
     $totalRrc  = 0;
@@ -349,9 +326,7 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         $response["dsd"]["high"][]   = (int)$row["HighImpact"];
     }
 
-    // --------------------------------------------------
-    // 5. Send JSON and stop script
-    // --------------------------------------------------
+    // 5. Send JSON and stop script, Source: https://www.php.net/manual/en/function.json-encode.php
     ob_clean();
     header("Content-Type: application/json");
     echo json_encode($response);
@@ -359,9 +334,10 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
     exit();
 }
 
-// ============================================================================
+// ================================================================================
 // INVALID ACTION (anything that isn't company_search, region_search, disruptions)
-// ============================================================================
+// ================================================================================
+// Source: https://www.php.net/manual/en/reserved.variables.get.php
 else {
     $action = isset($_GET['action']) ? $_GET['action'] : 'none';
     ob_clean();

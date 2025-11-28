@@ -3,7 +3,7 @@
 <head>
     <title>Disruption Analysis Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=4">
+    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=5">
 </head>
 <body>
 
@@ -46,12 +46,14 @@
         <option value="3">3</option>
     </select>
 
+  <!-- Date range filters -->
     <input type="date" id="disruption-start-date"
            style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
 
     <input type="date" id="disruption-end-date"
            style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
 
+  <!-- Apply/Clear Filter buttons -->
     <button class="btn" onclick="applyFilters()" style="height: 34px; padding: 0 15px;">
         Apply Filters
     </button>
@@ -66,54 +68,62 @@
   <h1 class="page-title">Disruption Analysis Dashboard</h1>
 
   <div class="dashboard-grid">
-    <!-- DF -->
-    <div class="card">
-      <h2 class="card-title">Disruption Frequency (DF)</h2>
-      <div id="df-bar" class="graph-container"></div>
-    </div>
-
-    <!-- ART -->
-    <div class="card">
-      <h2 class="card-title">Average Recovery Time (ART)</h2>
-      <div id="art-histogram" class="graph-container"></div>
-    </div>
-
-    <!-- HDR -->
-    <div class="card">
-      <h2 class="card-title">High-Impact Disruption Rate (HDR)</h2>
-      <div id="hdr-bar" class="graph-container"></div>
-    </div>
-
-    <!-- TD -->
-    <div class="card">
-      <h2 class="card-title">Total Downtime (TD)</h2>
-      <div id="td-histogram" class="graph-container"></div>
-    </div>
-
-    <!-- RRC -->
-    <div class="card">
-      <h2 class="card-title">Regional Risk Concentration (RRC)</h2>
-      <div id="rrc-heatmap" class="graph-container"></div>
-    </div>
-
-    <!-- DSD -->
-    <div class="card">
-      <h2 class="card-title">Disruption Severity Distribution (DSD)</h2>
-      <div id="dsd-bar" class="graph-container"></div>
-    </div>
+  <!-- DATA EXPORT BUTTONS -->
+  <!-- DF -->
+  <div class="card">
+    <h2 class="card-title">Disruption Frequency (DF)</h2>
+    <div id="df-bar" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportDF()">Export DF Data</button>
   </div>
+
+  <!-- ART -->
+  <div class="card">
+    <h2 class="card-title">Average Recovery Time (ART)</h2>
+    <div id="art-histogram" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportART()">Export ART Data</button>
+  </div>
+
+  <!-- HDR -->
+  <div class="card">
+    <h2 class="card-title">High-Impact Disruption Rate (HDR)</h2>
+    <div id="hdr-bar" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportHDR()">Export HDR Data</button>
+  </div>
+
+  <!-- TD -->
+  <div class="card">
+    <h2 class="card-title">Total Downtime (TD)</h2>
+    <div id="td-histogram" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportTD()">Export TD Data</button>
+  </div>
+
+  <!-- RRC -->
+  <div class="card">
+    <h2 class="card-title">Regional Risk Concentration (RRC)</h2>
+    <div id="rrc-heatmap" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportRRC()">Export RRC Data</button>
+  </div>
+
+  <!-- DSD -->
+  <div class="card">
+    <h2 class="card-title">Disruption Severity Distribution (DSD)</h2>
+    <div id="dsd-bar" class="graph-container"></div>
+    <button class="btn btn-export" onclick="exportDSD()">Export DSD Data</button>
+  </div>
+</div>
 </div>
 
 <!-- ==================== FULL-SCREEN PLOT VIEW ==================== -->
  <div id="plot-modal" class="plot-modal">
-  <div class="plot-modal-content"></div>
+  <div class="plot-modal-content">
     <span id="plot-modal-close" class="plot-modal-close">&times;</span>
     <div id="plot-modal-inner"></div>
   </div>
- </div>
+</div>
  
 <script>
 // ===================== WAIT FOR PAGE TO LOAD =====================
+//Source: https://developer.mozilla.org/en-US/docs/Web/API/Window/DOMContentLoaded_event
 document.addEventListener('DOMContentLoaded', function () {
   console.log("Page loaded, initializing search functionality...");
 });
@@ -122,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var currentCompanyName = '';
   var currentRegion = '';
   var currentTier = '';
+  var latestDisruptionData = null;
 
   // ===================== GET DOM ELEMENTS =====================
   var companyInput = document.getElementById("company-search-input");
@@ -138,6 +149,13 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ===================== AJAX HELPER FUNCTION =====================
+  //Source: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest
+  //Source: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+  //Source: https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
+  //Source: https://developer.mozilla.org/en-US/docs/Web/API/Response/json
+  //Source: https://www.w3schools.com/xml/ajax_xmlhttprequest_create.asp
+  //Source: https://www.w3schools.com/xml/ajax_xmlhttprequest_send.asp
+  //Source: https://www.w3schools.com/xml/ajax_xmlhttprequest_response.asp
   function ajaxGet(url, onSuccess, onError) {
     console.log("AJAX GET:", url);
     var xhr = new XMLHttpRequest();
@@ -163,6 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ===================== COMPANY SEARCH =====================
+  // Source: https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
   function displayCompanies(data) {
     console.log("Displaying companies:", data);
     companyResults.innerHTML = "";
@@ -340,7 +359,58 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log("Filters cleared.");
   };
 
-  // ===================== RENDER DISRUPTION DATA =====================
+  // ===================== FULLSCREEN MODAL ELEMENTS =====================
+  // Source: https://www.w3schools.com/howto/howto_css_modals.asp
+  var plotModal      = document.getElementById('plot-modal');
+  var plotModalClose = document.getElementById('plot-modal-close');
+  var plotModalInner = document.getElementById('plot-modal-inner');
+
+  // Hide modal on load
+  if (plotModal) {
+    plotModal.style.display = 'none';
+  }
+
+  function openPlotModal(traces, layout) {
+    if (!window.Plotly || !plotModal || !plotModalInner) return;
+
+    // Clear previous plot
+    plotModalInner.innerHTML = '';
+
+    // Slightly larger margins for fullscreen
+    var modalLayout = Object.assign({}, layout || {}, {
+      autosize: true,
+      margin: { t: 60, r: 40, b: 60, l: 100 }
+    });
+
+    Plotly.newPlot(plotModalInner, traces, modalLayout, { responsive: true });
+
+    // Show modal
+    plotModal.style.display = 'block';
+  }
+
+  // Close modal function
+  function closePlotModal() {
+    if (!plotModal) return;
+    plotModal.style.display = 'none';
+    if (window.Plotly && plotModalInner) {
+      Plotly.purge(plotModalInner);
+    }
+  }
+
+  if (plotModalClose) {
+    plotModalClose.addEventListener('click', closePlotModal);
+  }
+
+  // Close when clicking outside the content
+  if (plotModal) {
+    plotModal.addEventListener('click', function (e) {
+      if (e.target === plotModal) {
+        closePlotModal();
+      }
+    });
+  }
+
+    // ===================== RENDER DISRUPTION DATA =====================
   function renderDisruptionData(data) {
     console.log("Rendering disruption data:", data);
 
@@ -350,94 +420,233 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bars
+    latestDisruptionData = data;// Store for export functions
 
-    // DF BAR
-    if (data.df && data.df.names.length > 0) {
-      const names = data.df.names.slice(0, MAX_COMPANIES);
+    const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bar charts
+
+  // ===================== CSV EXPORT FUNCTIONS =====================
+    window.exportDF = function () {
+  if (!latestDisruptionData || !latestDisruptionData.df) {
+    alert("No DF data to export. Apply filters first.");
+    return;
+  }
+
+  const names  = latestDisruptionData.df.names;
+  const values = latestDisruptionData.df.values;
+
+  const rows = names.map((name, i) => [name, values[i]]);
+  downloadCSV(["Company", "Disruptions"], rows, "disruption_frequency.csv");
+};
+
+window.exportART = function () {
+  if (!latestDisruptionData || !latestDisruptionData.art) {
+    alert("No ART data to export. Apply filters first.");
+    return;
+  }
+
+  const values = latestDisruptionData.art.values;
+  const rows = values.map((v, i) => [i + 1, v]); // simple index + value
+
+  downloadCSV(["Record", "AvgRecoveryDays"], rows, "average_recovery_time.csv");
+};
+
+window.exportHDR = function () {
+  if (!latestDisruptionData || !latestDisruptionData.hdr) {
+    alert("No HDR data to export. Apply filters first.");
+    return;
+  }
+
+  const names  = latestDisruptionData.hdr.names;
+  const values = latestDisruptionData.hdr.values;
+
+  const rows = names.map((name, i) => [name, values[i]]);
+  downloadCSV(["Company", "HighImpactRatePercent"], rows, "high_impact_disruption_rate.csv");
+};
+
+window.exportTD = function () {
+  if (!latestDisruptionData || !latestDisruptionData.td) {
+    alert("No TD data to export. Apply filters first.");
+    return;
+  }
+
+  const values = latestDisruptionData.td.values;
+  const rows = values.map((v, i) => [i + 1, v]);
+
+  downloadCSV(["Record", "TotalDowntimeDays"], rows, "total_downtime.csv");
+};
+
+window.exportRRC = function () {
+  if (!latestDisruptionData || !latestDisruptionData.rrc) {
+    alert("No RRC data to export. Apply filters first.");
+    return;
+  }
+
+  const names  = latestDisruptionData.rrc.names;
+  const values = latestDisruptionData.rrc.values;
+
+  const rows = names.map((name, i) => [name, values[i]]);
+  downloadCSV(["Region", "RiskPercent"], rows, "regional_risk_concentration.csv");
+};
+
+window.exportDSD = function () {
+  if (!latestDisruptionData || !latestDisruptionData.dsd) {
+    alert("No DSD data to export. Apply filters first.");
+    return;
+  }
+
+  const names  = latestDisruptionData.dsd.names;
+  const low    = latestDisruptionData.dsd.low;
+  const medium = latestDisruptionData.dsd.medium;
+  const high   = latestDisruptionData.dsd.high;
+
+  const rows = names.map((name, i) => [
+    name,
+    low[i]    || 0,
+    medium[i] || 0,
+    high[i]   || 0
+  ]);
+
+  downloadCSV(["Company", "Low", "Medium", "High"], rows, "disruption_severity_distribution.csv");
+};
+
+
+    // ===== DF BAR =====
+    // Source: https://plotly.com/javascript/bar-charts/
+    if (data.df && data.df.names && data.df.names.length > 0) {
+      const names  = data.df.names.slice(0, MAX_COMPANIES);
       const values = data.df.values.slice(0, MAX_COMPANIES);
 
-      Plotly.newPlot("df-bar", [{
+      const dfTraces = [{
         x: values,
         y: names,
         type: "bar",
         orientation: "h",
         marker: { color: '#4a90e2' }
-      }], {
-        title: "Disruption Frequency by Company",
-        margin: { t: 40, r: 20, b: 100, l: 50 },
+      }];
+
+      const dfLayout = {
+        //title: "Disruption Frequency by Company",
+        margin: { t: 40, r: 20, b: 40, l: 160 },
         xaxis: { title: "Number of Disruptions" },
-        yaxis: { automargin: true }
-      });
+        yaxis: { automargin: true } 
+      };
+
+      Plotly.newPlot("df-bar", dfTraces, dfLayout, { responsive: true });
+      document.getElementById("df-bar").onclick = function () {
+        openPlotModal(dfTraces, dfLayout);
+      };
+    } else {
+      Plotly.purge('df-bar');
     }
 
-    // ART HISTOGRAM
-    if (data.art && data.art.values.length > 0) {
-      Plotly.newPlot("art-histogram", [{
+    // ===== ART HISTOGRAM =====
+    // Source: https://plotly.com/javascript/histograms/
+    if (data.art && data.art.values && data.art.values.length > 0) {
+        const artTraces = [{
         x: data.art.values,
         type: "histogram",
         marker: { color: '#22c55e' }
-      }], {
-        title: "Average Recovery Time (Days)",
-        xaxis: { title: "Days" },
-        yaxis: { title: "Count" }
-      });
+      }];
+
+      const artLayout = {
+        //title: "Average Recovery Time (Days)",
+        xaxis: { title: "Number of Days" },
+        yaxis: { title: "Count of Occurences" }
+      };
+
+      Plotly.newPlot("art-histogram", artTraces, artLayout, { responsive: true });
+      document.getElementById("art-histogram").onclick = function () {
+        openPlotModal(artTraces, artLayout);
+      };
+    } else {
+      Plotly.purge('art-histogram');
     }
 
-    // HDR BAR
-    if (data.hdr && data.hdr.names.length > 0) {
-      const names = data.hdr.names.slice(0, MAX_COMPANIES);
+    // ===== HDR BAR =====
+    // Source: https://plotly.com/javascript/bar-charts/
+    if (data.hdr && data.hdr.names && data.hdr.names.length > 0) {
+      const names  = data.hdr.names.slice(0, MAX_COMPANIES);
       const values = data.hdr.values.slice(0, MAX_COMPANIES);
 
-      Plotly.newPlot("hdr-bar", [{
+      const hdrTraces = [{
         x: values,
         y: names,
         type: "bar",
         orientation: "h",
         marker: { color: '#fbbf24' }
-      }], {
-        title: "High Impact Disruption Rate (%)",
-        margin: { t: 40, r: 20, b: 100, l: 50 },
+      }];
+
+      const hdrLayout = {
+        //title: "High Impact Disruption Rate (%)",
+        margin: { t: 40, r: 20, b: 40, l: 160 },
         xaxis: { title: "Percentage (%)" },
         yaxis: { automargin: true }
-      });
+      };
+
+      Plotly.newPlot("hdr-bar", hdrTraces, hdrLayout, { responsive: true });
+      document.getElementById("hdr-bar").onclick = function () {
+        openPlotModal(hdrTraces, hdrLayout);
+      };
+    } else {
+      Plotly.purge('hdr-bar');
     }
 
-    // TD HISTOGRAM
-    if (data.td && data.td.values.length > 0) {
-      Plotly.newPlot("td-histogram", [{
+    // ===== TD HISTOGRAM =====
+    // Source: https://plotly.com/javascript/histograms/
+    if (data.td && data.td.values && data.td.values.length > 0) {
+      const tdTraces = [{
         x: data.td.values,
         type: "histogram",
         marker: { color: '#ef4444' }
-      }], {
-        title: "Total Downtime (Days)",
-        xaxis: { title: "Days" },
-        yaxis: { title: "Count" }
-      });
+      }];
+
+      const tdLayout = {
+        //title: "Total Downtime (Days)",
+        xaxis: { title: "Number of Days" },
+        yaxis: { title: "Count of Occurences" }
+      };
+
+      Plotly.newPlot("td-histogram", tdTraces, tdLayout, { responsive: true });
+      document.getElementById("td-histogram").onclick = function () {
+        openPlotModal(tdTraces, tdLayout);
+      };
+    } else {
+      Plotly.purge('td-histogram');
     }
 
-    // RRC HEATMAP
-    if (data.rrc && data.rrc.names.length > 0) {
-      Plotly.newPlot("rrc-heatmap", [{
+    // ===== RRC HEATMAP =====
+    // Source: https://plotly.com/javascript/heatmaps/
+    if (data.rrc && data.rrc.names && data.rrc.names.length > 0) {
+      const rrcTraces = [{
         z: [data.rrc.values],
         x: data.rrc.names,
         y: ["Risk %"],
         type: "heatmap",
         colorscale: "Reds"
-      }], {
-        title: "Regional Risk Concentration",
-        margin: { t: 40, r: 20, b: 80, l: 50 }
-      });
+      }];
+
+      const rrcLayout = {
+        //title: "Regional Risk Concentration",
+        margin: { t: 40, r: 20, b: 80, l: 60 }
+      };
+
+      Plotly.newPlot("rrc-heatmap", rrcTraces, rrcLayout, { responsive: true });
+      document.getElementById("rrc-heatmap").onclick = function () {
+        openPlotModal(rrcTraces, rrcLayout);
+      };
+    } else {
+      Plotly.purge('rrc-heatmap');
     }
 
-    // DSD STACKED BAR
-    if (data.dsd && data.dsd.names.length > 0) {
-      const names = data.dsd.names.slice(0, MAX_COMPANIES);
-      const low = data.dsd.low.slice(0, MAX_COMPANIES);
+    // ===== DSD STACKED BAR =====
+    // Source: https://plotly.com/javascript/bar-charts/#stacked-bar-chart
+    if (data.dsd && data.dsd.names && data.dsd.names.length > 0) {
+      const names  = data.dsd.names.slice(0, MAX_COMPANIES);
+      const low    = data.dsd.low.slice(0, MAX_COMPANIES);
       const medium = data.dsd.medium.slice(0, MAX_COMPANIES);
-      const high = data.dsd.high.slice(0, MAX_COMPANIES);
+      const high   = data.dsd.high.slice(0, MAX_COMPANIES);
 
-      Plotly.newPlot("dsd-bar", [
+      const dsdTraces = [
         {
           x: low,
           y: names,
@@ -462,17 +671,50 @@ document.addEventListener('DOMContentLoaded', function () {
           orientation: "h",
           marker: { color: '#ef4444' }
         }
-      ], {
+      ];
+
+      const dsdLayout = {
         barmode: "stack",
-        title: "Disruption Severity Distribution",
-        margin: { t: 40, r: 20, b: 100, l: 50 },
+        //title: "Disruption Severity Distribution",
+        margin: { t: 40, r: 20, b: 40, l: 160 },
         xaxis: { title: "Number of Disruptions" },
         yaxis: { automargin: true }
-      });
+      };
+
+      Plotly.newPlot("dsd-bar", dsdTraces, dsdLayout, { responsive: true });
+      document.getElementById("dsd-bar").onclick = function () {
+        openPlotModal(dsdTraces, dsdLayout);
+      };
+    } else {
+      Plotly.purge('dsd-bar');
     }
 
     console.log("✅ All plots rendered!");
   }
+
+// ===================== CSV EXPORT HELPER FUNCTION =====================
+function downloadCSV(headersArray, rowsArray, filename) {
+  // headersArray: ["Company","Disruptions"]
+  // rowsArray:   [ ["A",10], ["B",5], ... ]
+
+  let csv = "";
+  csv += headersArray.join(",") + "\n";
+
+  rowsArray.forEach(function(row) {
+    csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
   // ===================== LOAD INITIAL DATA =====================
   ajaxGet("disruptions.php?action=disruptions", renderDisruptionData);
