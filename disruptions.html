@@ -3,7 +3,7 @@
 <head>
     <title>Disruption Analysis Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=5">
+    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=6">
 </head>
 <body>
 
@@ -64,8 +64,12 @@
   </div>
 </nav>
 
+<!-- ==================== DASHBOARD CONTENT ==================== -->
 <div class="container">
   <h1 class="page-title">Disruption Analysis Dashboard</h1>
+
+  <!-- DISRUPTION ALERT BANNER -->
+  <div id="disruption-alert" class="alert-banner" style="display:none;"></div>
 
   <div class="dashboard-grid">
   <!-- DATA EXPORT BUTTONS -->
@@ -410,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-    // ===================== RENDER DISRUPTION DATA =====================
+  // ===================== RENDER DISRUPTION DATA =====================
   function renderDisruptionData(data) {
     console.log("Rendering disruption data:", data);
 
@@ -421,6 +425,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     latestDisruptionData = data;// Store for export functions
+
+  // ===== ALERT BANNER FOR NEW / ONGOING DISRUPTIONS ===================
+  var alertBanner = document.getElementById("disruption-alert");
+    if (alertBanner && data.alerts) {
+      var msgs = [];
+
+      if (data.alerts.new_last_week && data.alerts.new_last_week > 0) {
+        msgs.push(data.alerts.new_last_week + " new disruption(s) in the last 7 days.");
+      }
+
+      if (data.alerts.ongoing && data.alerts.ongoing > 0) {
+        msgs.push(data.alerts.ongoing + " ongoing disruption(s) with no recovery date.");
+      }
+
+      if (msgs.length > 0) {
+        // use HTML entity for warning symbol to avoid weird encoding chars
+        alertBanner.innerHTML = "&#9888; " + msgs.join(" ");
+        alertBanner.style.display = "block";
+      } else {
+        alertBanner.style.display = "none";
+        alertBanner.textContent = "";
+      }
+    }
 
     const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bar charts
 

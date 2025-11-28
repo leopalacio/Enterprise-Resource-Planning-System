@@ -261,6 +261,38 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         exit();
     }
 
+    // 3.7 NEW DISRUPTIONS IN LAST 7 DAYS
+    $sql_new = "
+        SELECT COUNT(*) AS NewCount
+        FROM DisruptionEvent de
+        INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
+        INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
+        LEFT  JOIN Location       l  ON l.LocationID = c.LocationID
+        $baseWhere
+        AND de.EventDate >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ";
+    $result_new = mysqli_query($conn, $sql_new);
+    $newCount = 0;
+    if ($result_new && $row = mysqli_fetch_assoc($result_new)) {
+        $newCount = (int)$row['NewCount'];
+    }
+
+    // 3.8 ONGOING DISRUPTIONS (NO RECOVERY DATE)
+    $sql_ongoing = "
+        SELECT COUNT(*) AS OngoingCount
+        FROM DisruptionEvent de
+        INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
+        INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
+        LEFT  JOIN Location       l  ON l.LocationID = c.LocationID
+        $baseWhere
+        AND de.EventRecoveryDate IS NULL
+        ";
+    $result_ongoing = mysqli_query($conn, $sql_ongoing);
+    $ongoingCount = 0;
+    if ($result_ongoing && $row = mysqli_fetch_assoc($result_ongoing)) {
+        $ongoingCount = (int)$row['OngoingCount'];
+    }
+
     // 4. Build the single JSON response object, Source: https://www.php.net/manual/en/function.json-encode.php
     $response = [
         "df"  => ["names" => [], "values" => []],
@@ -268,12 +300,8 @@ elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
         "hdr" => ["names" => [], "values" => []],
         "td"  => ["names" => [], "values" => []],
         "rrc" => ["names" => [], "values" => []],
-        "dsd" => [
-            "names"  => [],
-            "low"    => [],
-            "medium" => [],
-            "high"   => []
-        ]
+        "dsd" => ["names"  => [], "low"    => [], "medium" => [], "high"   => []],
+        "alerts" => ["new_last_week" => $newCount, "ongoing" => $ongoingCount]
     ];
 
     // DF, Source: https://www.php.net/manual/en/function.mysqli-fetch-assoc.php
