@@ -1,13 +1,10 @@
 <?php
-// =====================================================================
-// SESSION MANAGEMENT
-// session_start() - from PHP lab (php_lab_sols1__1_.pdf Section 1, problem 1)
-// Must be called before any output to track user sessions
-// =====================================================================
 session_start();
 
-// Check if user is logged in - from PHP lab problem 1
-if(!isset($_SESSION['username'])) {
+// ==================================================================================
+// LOCK THE PAGE - REDIRECT IF NOT LOGGED IN
+// ==================================================================================
+if (!isset($_SESSION['username'])) {
     header("Location: index.php");
     exit();
 }
@@ -597,28 +594,28 @@ if (isset($_GET['action'])) {
     <title>Transactions Information</title>
     <!-- Plotly library - from ajax_example.html line 6 -->
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" href="css/dashboard.css?v=4">
+    <link rel="stylesheet" href="css/dashboard.css?v=7">
 </head>
 <body>
 
 <!-- Navigation Bar Structure - Inspired by HTML lab (html_lab_sols1.pdf problem 25.1) -->
 <nav>
     <div class="nav-links">
-        <a href="company.php">Company Information</a>
-        <a href="disruptions.php">Disruption Events</a>
-        <a href="transactions.php">Transactions</a>
-        <button onclick="logout()">Log Out</button>
-        <script>
-        // confirm() method - from JS lab (js_lab_sols2__1_.pdf problem 9)
-        // Source: https://www.w3schools.com/jsref/met_win_confirm.asp
-        function logout() {
-            let answer = confirm("Are you sure you want to log out?");
-            if (answer) {
-                window.location.href = "logout.php";
-            }
-        }
-        </script>
-    </div>
+    <a href="company.php">Company Information</a>
+    <a href="disruptions.php">Disruption Events</a>
+    <a href="transactions.php" class="active">Transactions</a> 
+     <button class="logout-btn" onclick="logout()">
+        <img src="logout.png" alt="Log Out">
+    </button>
+    <script>
+       function logout() {
+           let answer = confirm("Are you sure you want to log out?");
+           if (answer) {
+               window.location.href = "logout.php";
+           }
+       }
+    </script>
+   </div>
     
     <!-- Flexbox spacer - from CSS best practices -->
     <!-- Source: https://css-tricks.com/snippets/css/a-guide-to-flexbox/ -->
@@ -727,31 +724,41 @@ if (isset($_GET['action'])) {
    <!-- Grid system - from HTML lab (html_lab_sols1.pdf problem 23) -->
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-top: 15px;">
         
-        <div class="card" style="padding: 12px; height: 250px;">
-            <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Plot 1</h3>
-            <!-- Plotly div containers - will be populated dynamically -->
-            <div id="plot-1" style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;"></div>
-        </div>
-
-        <div class="card" style="padding: 12px; height: 250px;">
-            <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Plot 2</h3>
-            <div id="plot-2" style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;"></div>
-        </div>
-
-        <div class="card" style="padding: 12px; height: 250px;">
-            <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Plot 3</h3>
-            <div id="plot-3" style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;"></div>
-        </div>
-
-        <div class="card" style="padding: 12px; height: 250px;">
-            <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Plot 4</h3>
-            <div id="plot-4" style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;"></div>
-        </div>
-
+ <div class="card" style="padding: 12px; height: 250px;">
+    <button class="zoom-btn" type="button">+</button>
+    <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Distributors By Volume</h3>
+    <div class="chart-wrapper">
+        <div id="plot-1"></div>
     </div>
 </div>
 
-<!-- JavaScript Section -->
+<div class="card" style="padding: 12px; height: 250px;">
+    <button class="zoom-btn" type="button">+</button>
+    <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">On-Time Delivery Rates</h3>
+    <div class="chart-wrapper">
+        <div id="plot-2"></div>
+    </div>
+</div>
+
+<div class="card" style="padding: 12px; height: 250px;">
+    <button class="zoom-btn" type="button">+</button>
+    <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Shipment Status Distribution</h3>
+    <div class="chart-wrapper">
+        <div id="plot-3"></div>
+    </div>
+</div>
+
+<div class="card" style="padding: 12px; height: 250px;">
+    <button class="zoom-btn" type="button">+</button>
+    <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">Products by Volume</h3>
+    <div class="chart-wrapper">
+        <div id="plot-4"></div>
+    </div>
+</div>
+
+</div>
+<div id="box-overlay"></div>
+
 <script>
     // =====================================================================
     // VARIABLE DECLARATIONS AND ELEMENT REFERENCES
@@ -1300,7 +1307,6 @@ function displayData(data) {
         // Source: https://plotly.com/javascript/reference/layout/xaxis/#layout-xaxis-automargin
         // =====================================================================
         var layout1 = {
-            title: { text: 'Distributors by Volume', font: { size: 11 } },
             xaxis: { tickangle: -45, tickfont: { size: 6 }, automargin: true },
             yaxis: { title: 'Quantity', titlefont: { size: 9 }, automargin: true },
             margin: { t: 35, r: 15, b: 90, l: 45 },
@@ -1309,6 +1315,9 @@ function displayData(data) {
         
         // Plotly.newPlot() - from ajax_example.html line 65
         Plotly.newPlot('plot-1', [trace1], layout1, {displayModeBar: false});
+    }
+    else {
+        Plotly.purge('plot-1');
     }
     
     // =====================================================================
@@ -1334,7 +1343,6 @@ function displayData(data) {
         // automargin: true for automatic label space adjustment
         // =====================================================================
         var layout2 = {
-            title: { text: 'On-Time Delivery Rates', font: { size: 11 } },
             xaxis: { title: 'Delivery Rate (%)', titlefont: { size: 9 }, tickfont: { size: 7 }, automargin: true },
             yaxis: { tickfont: { size: 6 }, automargin: true },
             margin: { t: 35, r: 15, b: 35, l: 160 },
@@ -1342,6 +1350,9 @@ function displayData(data) {
         };
         
         Plotly.newPlot('plot-2', [trace2], layout2, {displayModeBar: false});
+    }
+    else {
+        Plotly.purge('plot-2');
     }
     
     // =====================================================================
@@ -1369,7 +1380,6 @@ function displayData(data) {
         };
         
         var layout3 = {
-            title: { text: 'Shipment Status Distribution', font: { size: 11 } },
             margin: { t: 35, r: 15, b: 15, l: 15 },
             height: 200,
             showlegend: true,
@@ -1383,6 +1393,9 @@ function displayData(data) {
         };
         
         Plotly.newPlot('plot-3', [trace3], layout3, {displayModeBar: false});
+    }
+    else {
+        Plotly.purge('plot-3');
     }
     
     // =====================================================================
@@ -1402,7 +1415,6 @@ function displayData(data) {
         // Smaller fonts and increased margin for product names
         // automargin helps with long product names
         var layout4 = {
-            title: { text: 'Products by Volume', font: { size: 11 } },
             xaxis: { tickangle: -45, tickfont: { size: 6 }, automargin: true },
             yaxis: { title: 'Units', titlefont: { size: 9 }, automargin: true },
             margin: { t: 35, r: 15, b: 90, l: 45 },
@@ -1410,6 +1422,9 @@ function displayData(data) {
         };
         
         Plotly.newPlot('plot-4', [trace4], layout4, {displayModeBar: false});
+    }
+    else {
+        Plotly.purge('plot-4');
     }
     
     console.log("✅ All data displayed!");
@@ -1484,7 +1499,7 @@ fetch('role.php')
 
       const seniorLink = document.createElement('a');
       seniorLink.id = 'SeniorModuleTab';
-      seniorLink.href = 'senior_manager.html';
+      seniorLink.href = 'senior_manager.php';
       seniorLink.textContent = 'Senior Module';
 
       navLinks.insertBefore(seniorLink, navLinks.firstChild);
@@ -1493,6 +1508,59 @@ fetch('role.php')
       console.error('Role check failed:', err);
     })
 
+// =====================================================================
+// CARD ZOOM FOR TRANSACTIONS PLOTS
+// Uses .card, .zoom-btn, #box-overlay, .card.expanded styles from CSS
+// =====================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    const overlay = document.getElementById('box-overlay');
+    if (!overlay) {
+        console.error('box-overlay not found – zoom will not work');
+        return;
+    }
+
+    const zoomButtons = document.querySelectorAll('.card .zoom-btn');
+
+    zoomButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const card = this.closest('.card');
+            if (!card) return;
+
+            const isExpanded = card.classList.toggle('expanded');
+
+            // Toggle + / − icon
+            this.textContent = isExpanded ? '-' : '+';
+
+            // Show / hide overlay
+            if (isExpanded) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+
+            // Let Plotly resize in the new space
+            const graph = card.querySelector('.graph-container');
+            if (graph && graph.id) {
+                setTimeout(function () {
+                    Plotly.Plots.resize(graph);
+                }, 150);
+            }
+        });
+    });
+
+    // Clicking the overlay collapses any expanded card
+    overlay.addEventListener('click', function () {
+        const expandedCard = document.querySelector('.card.expanded');
+        if (!expandedCard) return;
+
+        expandedCard.classList.remove('expanded');
+
+        const btn = expandedCard.querySelector('.zoom-btn');
+        if (btn) btn.textContent = '+';
+
+        overlay.classList.remove('show');
+    });
+});
 </script>
 </body>
 </html>

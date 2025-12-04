@@ -2,7 +2,7 @@
 session_start();
 
 // ==================================================================================
-// LOCK THE PAGE – REDIRECT IF NOT LOGGED IN
+// LOCK THE PAGE - REDIRECT IF NOT LOGGED IN
 // ==================================================================================
 if (!isset($_SESSION['username'])) {
     header("Location: index.php");
@@ -115,22 +115,23 @@ if (isset($_GET['action'])) {
         exit;
     }
 
-    // ============================================================================
-    // HANDLE DISRUPTION DATA REQUEST (when user selects a company or applies filters)
-    // ============================================================================
-    elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
+    // =====================================================================
+    // EXPORT FULL DISRUPTION DATASET (RAW ROWS FROM DATABASE)
+    // =====================================================================
+    elseif (isset($_GET['action']) && $_GET['action'] == 'export_events') {
 
-        // 1. Read filters from query string, Source: https://www.php.net/manual/en/reserved.variables.get.php
+        // Same filter reading logic as in 'disruptions'
         $company_id = isset($_GET['company'])    ? mysqli_real_escape_string($conn, $_GET['company'])    : '';
         $region     = isset($_GET['region'])     ? mysqli_real_escape_string($conn, $_GET['region'])     : '';
         $tier       = isset($_GET['tier'])       ? mysqli_real_escape_string($conn, $_GET['tier'])       : '';
-        $start_date = isset($_GET['start_date']) ? mysqli_real_escape_string($conn, $_GET['start_date']) : '';
-        $end_date   = isset($_GET['end_date'])   ? mysqli_real_escape_string($conn, $_GET['end_date'])   : '';
+        $start_date = (isset($_GET['start_date']) && $_GET['start_date'] !== '')
+                        ? mysqli_real_escape_string($conn, $_GET['start_date'])
+                        : '';
+        $end_date   = (isset($_GET['end_date']) && $_GET['end_date'] !== '')
+                        ? mysqli_real_escape_string($conn, $_GET['end_date'])
+                        : '';
 
-        // 2. Build ONE base WHERE clause using consistent aliases, Source: https://www.php.net/manual/en/function.mysqli-real-escape-string.php
-        // de = DisruptionEvent, ic = ImpactsCompany, c = Company, l = Location
         $baseWhere = " WHERE 1=1";
-
         if ($company_id !== '') {
             $baseWhere .= " AND c.CompanyID = '$company_id'";
         }
@@ -146,6 +147,110 @@ if (isset($_GET['action'])) {
         if ($end_date !== '') {
             $baseWhere .= " AND de.EventDate <= '$end_date'";
         }
+
+        // Pull “raw” disruption rows + related info
+        $sql = "
+            SELECT
+                de.EventID,
+                de.EventDate,
+                de.EventRecoveryDate,
+                dc.CategoryName,
+                dc.Description,
+                ic.ImpactLevel,
+                DATEDIFF(de.EventRecoveryDate, de.EventDate) AS TotalDowntimeDays,
+                c.CompanyID,
+                c.CompanyName,
+                c.TierLevel,
+                c.Type,
+                l.ContinentName AS Region,
+                l.CountryName
+            FROM DisruptionEvent de
+            INNER JOIN ImpactsCompany ic ON ic.EventID = de.EventID
+            INNER JOIN Company        c  ON c.CompanyID = ic.AffectedCompanyID
+            INNER JOIN DisruptionCategory dc ON dc.CategoryID = de.CategoryID
+            LEFT  JOIN Location       l  ON l.LocationID = c.LocationID
+            $baseWhere
+            ORDER BY de.EventDate, c.CompanyName, de.EventID
+        ";
+
+        $result = mysqli_query($conn, $sql);
+        if (!$result) {
+            ob_clean();
+            header('Content-Type: text/plain; charset=utf-8');
+            echo "Export query failed: " . mysqli_error($conn);
+            mysqli_close($conn);
+            exit();
+        }
+
+        // Stream CSV
+        ob_clean();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="disruptions_full_export.csv"');
+
+        $out = fopen('php://output', 'w');
+
+        // Use DB column names as headers
+        $fields = mysqli_fetch_fields($result);
+        $headerRow = [];
+        foreach ($fields as $f) {
+            $headerRow[] = $f->name;
+        }
+        fputcsv($out, $headerRow);
+
+        // Data rows
+        while ($row = mysqli_fetch_assoc($result)) {
+            fputcsv($out, $row);
+        }
+
+        fclose($out);
+        mysqli_close($conn);
+        exit();
+    }
+
+    // ============================================================================
+    // HANDLE DISRUPTION DATA REQUEST (when user selects a company or applies filters)
+    // ============================================================================
+    elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
+
+      // Define YTD filter defaults
+        $today     = date('Y-m-d');
+        $yearStart = date('Y-01-01');
+
+      // 1. Read filters from query string, Source: https://www.php.net/manual/en/reserved.variables.get.php
+        $company_id = isset($_GET['company'])    ? mysqli_real_escape_string($conn, $_GET['company'])    : '';
+        $region     = isset($_GET['region'])     ? mysqli_real_escape_string($conn, $_GET['region'])     : '';
+        $tier       = isset($_GET['tier'])       ? mysqli_real_escape_string($conn, $_GET['tier'])       : '';
+
+        // Default to no date filters if not provided
+        $start_date = (isset($_GET['start_date']) && $_GET['start_date'] !== '')
+            ? mysqli_real_escape_string($conn, $_GET['start_date'])
+            : '';
+
+        $end_date   = (isset($_GET['end_date']) && $_GET['end_date'] !== '')
+            ? mysqli_real_escape_string($conn, $_GET['end_date'])
+            : '';
+
+        // 2. Build ONE base WHERE clause using consistent aliases, Source: https://www.php.net/manual/en/function.mysqli-real-escape-string.php
+        $baseWhere = " WHERE 1=1";
+
+        if ($company_id !== '') {
+            $baseWhere .= " AND c.CompanyID = '$company_id'";
+        }
+        if ($region !== '') {
+            $baseWhere .= " AND l.ContinentName = '$region'";
+        }
+        if ($tier !== '') {
+            $baseWhere .= " AND c.TierLevel = '$tier'";
+        }
+
+        // Add date filters if provided
+        if ($start_date !== '') {
+            $baseWhere .= " AND de.EventDate >= '$start_date'";
+        }
+        if ($end_date !== '') {
+            $baseWhere .= " AND de.EventDate <= '$end_date'";
+        }
+
 
         // These variants are used where recovery date is required
         $whereWithRecovery = $baseWhere . " AND de.EventRecoveryDate IS NOT NULL";
@@ -400,37 +505,50 @@ if (isset($_GET['action'])) {
 <head>
     <title>Disruption Analysis Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=6">
+    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=14">
 </head>
-<body>
+<body class = "disruptions-page">
 
 <nav>
   <div class="nav-links">
       <a href="company.php">Company Information</a>
-      <a href="disruptions.php">Disruption Events</a>
-      <a href="transactions.html">Transactions</a>
-      <button onclick="logout()">Log Out</button>
-        <script>
+      <a href="disruptions.php" class="active">Disruption Events</a>
+      <a href="transactions.php">Transactions</a>
+       <button class="logout-btn" onclick="logout()">
+        <img src="logout.png" alt="Log Out">
+      <script>
         function logout() {
             let answer = confirm("Are you sure you want to log out?");
             if (answer) {
-                window.location.href = "logout.php";  // 🔁 changed from index.html
+                window.location.href = "logout.php";
             }
         }
         </script>
   </div>
 
+  <!-- ADD THIS SPACER DIV (exactly like in transactions.php) -->
   <div style="flex-grow: 1;"></div>
   
   <!-- Company search box -->
-  <div class="search-box-two" style="position: relative;">
+  <!-- <div class="search-box-two" style="position: relative;">
     <input type="text" id="company-search-input" placeholder="Search Company" autocomplete="off" style="height: 34px;">
     <div class="search-results" id="company-search-results"></div>
+  </div> -->
+<div style="display: flex; align-items: center; gap: 6px;">
+  <div class="search-box-two" style="position: relative; width: 120px;">
+    <input type="text" id="source-search-input" placeholder="Seach Company" autocomplete="off" style="height: 34px;">
+    <div class="search-results" id="source-company-results"></div>
   </div>
 
   <!-- Region search box -->
-  <div class="search-box-two" style="position: relative;">
+  <!-- <div class="search-box-two" style="position: relative;">
     <input type="text" id="region-search-input" placeholder="Search Region" autocomplete="off" style="height: 34px;">
+    <div class="search-results" id="region-search-results"></div>
+  </div> -->
+
+  <div class="search-box-two" style="position: relative; width: 90px;">
+    <!-- Input with autocomplete off - standard HTML practice -->
+    <input type="text" id="region-search-input" placeholder="Region" autocomplete="off" style="height: 34px;">
     <div class="search-results" id="region-search-results"></div>
   </div>
 
@@ -451,15 +569,28 @@ if (isset($_GET['action'])) {
            style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
 
   <!-- Apply/Clear Filter buttons -->
-    <button class="btn" onclick="applyFilters()" style="height: 34px; padding: 0 15px;">
+    <!-- <button class="btn" onclick="applyFilters()" style="height: 34px; padding: 0 15px;">
         Apply Filters
     </button>
 
     <button class="btn" onclick="clearFilters()" style="height: 34px; padding: 0 15px;">
         Clear Filters
+    </button> -->
+    <button class="btn"
+      onclick="applyFilters()"
+      style="height: 34px; padding: 0 4px;">
+      Apply Filters
+    </button>
+
+    <button class="btn"
+      onclick="clearFilters()"
+      style="height: 34px; padding: 0 4px;">
+      Clear Filters
     </button>
   </div>
+  </div>
 </nav>
+<div id="box-overlay"></div>
 
 <!-- ==================== DASHBOARD CONTENT ==================== -->
 <div class="container">
@@ -468,58 +599,65 @@ if (isset($_GET['action'])) {
   <!-- DISRUPTION ALERT BANNER -->
   <div id="disruption-alert" class="alert-banner" style="display:none;"></div>
 
+  <!-- EXPORT FULL DATASET BUTTON -->
+  <div class="export-row">
+  <button class="btn btn-export" onclick="exportFullDataset()">
+    Export Full Disruption Dataset
+  </button>
+</div>
+
   <div class="dashboard-grid">
-  <!-- DATA EXPORT BUTTONS -->
-  <!-- DF -->
-  <div class="card">
-    <h2 class="card-title">Disruption Frequency (DF)</h2>
-    <div id="df-bar" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportDF()">Export DF Data</button>
+
+  <!-- DISRUPTION METRICS CARDS -->
+  <!--DF-->
+  <div class="card" data-box-id="df">
+  <h2 class="card-title">Disruption Frequency (DF)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="df-bar" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportDF()">Export DF Data</button>
   </div>
 
-  <!-- ART -->
-  <div class="card">
-    <h2 class="card-title">Average Recovery Time (ART)</h2>
-    <div id="art-histogram" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportART()">Export ART Data</button>
+  <!--ART-->
+  <div class="card" data-box-id="art">
+  <h2 class="card-title">Average Recovery Time (ART)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="art-histogram" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportART()">Export ART Data</button>
   </div>
 
-  <!-- HDR -->
-  <div class="card">
-    <h2 class="card-title">High-Impact Disruption Rate (HDR)</h2>
-    <div id="hdr-bar" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportHDR()">Export HDR Data</button>
+  <!--HDR-->
+  <div class="card" data-box-id="hdr">
+  <h2 class="card-title">High-Impact Disruption Rate (HDR)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="hdr-bar" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportHDR()">Export HDR Data</button>
   </div>
 
-  <!-- TD -->
-  <div class="card">
-    <h2 class="card-title">Total Downtime (TD)</h2>
-    <div id="td-histogram" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportTD()">Export TD Data</button>
+  <!--TD-->
+  <div class="card" data-box-id="td">
+  <h2 class="card-title">Total Downtime (TD)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="td-histogram" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportTD()">Export TD Data</button>
   </div>
 
-  <!-- RRC -->
-  <div class="card">
-    <h2 class="card-title">Regional Risk Concentration (RRC)</h2>
-    <div id="rrc-heatmap" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportRRC()">Export RRC Data</button>
+  <!--RRC-->
+  <div class="card" data-box-id="rrc">
+  <h2 class="card-title">Regional Risk Concentration (RRC)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="rrc-heatmap" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportRRC()">Export RRC Data</button>
   </div>
 
-  <!-- DSD -->
-  <div class="card">
-    <h2 class="card-title">Disruption Severity Distribution (DSD)</h2>
-    <div id="dsd-bar" class="graph-container"></div>
-    <button class="btn btn-export" onclick="exportDSD()">Export DSD Data</button>
+  <!--DSD-->
+  <div class="card" data-box-id="dsd">
+  <h2 class="card-title">Disruption Severity Distribution (DSD)</h2>
+  <button class="zoom-btn" title="Expand chart">+</button>
+  <div id="dsd-bar" class="graph-container"></div>
+  <button class="btn btn-export" onclick="exportDSD()">Export DSD Data</button>
   </div>
+
 </div>
-</div>
-
-<!-- ==================== FULL-SCREEN PLOT VIEW ==================== -->
- <div id="plot-modal" class="plot-modal">
-  <div class="plot-modal-content">
-    <span id="plot-modal-close" class="plot-modal-close">&times;</span>
-    <div id="plot-modal-inner"></div>
-  </div>
 </div>
  
 <script>
@@ -528,6 +666,28 @@ if (isset($_GET['action'])) {
 document.addEventListener('DOMContentLoaded', function () {
   console.log("Page loaded, initializing search functionality...");
 });
+
+  // ====== SET DEFAULT DATE FILTERS TO YTD ON LOAD ======
+  (function setYTDDefaults() {
+    var startInput = document.getElementById("disruption-start-date");
+    var endInput   = document.getElementById("disruption-end-date");
+    if (!startInput || !endInput) return;
+
+    var today = new Date();
+    var yearStart = new Date(today.getFullYear(), 0, 1);
+
+    function fmt(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    startInput.value = fmt(yearStart);
+    endInput.value   = fmt(today);
+
+    // Store YTD values globally to reset
+    window._ytdStart = fmt(yearStart);
+    window._ytdEnd   = fmt(today);
+  })();
+
   // ===================== STATE VARIABLES =====================
   var currentCompanyId = null;
   var currentCompanyName = '';
@@ -760,57 +920,6 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log("Filters cleared.");
   };
 
-  // ===================== FULLSCREEN MODAL ELEMENTS =====================
-  // Source: https://www.w3schools.com/howto/howto_css_modals.asp
-  var plotModal      = document.getElementById('plot-modal');
-  var plotModalClose = document.getElementById('plot-modal-close');
-  var plotModalInner = document.getElementById('plot-modal-inner');
-
-  // Hide modal on load
-  if (plotModal) {
-    plotModal.style.display = 'none';
-  }
-
-  function openPlotModal(traces, layout) {
-    if (!window.Plotly || !plotModal || !plotModalInner) return;
-
-    // Clear previous plot
-    plotModalInner.innerHTML = '';
-
-    // Slightly larger margins for fullscreen
-    var modalLayout = Object.assign({}, layout || {}, {
-      autosize: true,
-      margin: { t: 60, r: 40, b: 60, l: 100 }
-    });
-
-    Plotly.newPlot(plotModalInner, traces, modalLayout, { responsive: true });
-
-    // Show modal
-    plotModal.style.display = 'block';
-  }
-
-  // Close modal function
-  function closePlotModal() {
-    if (!plotModal) return;
-    plotModal.style.display = 'none';
-    if (window.Plotly && plotModalInner) {
-      Plotly.purge(plotModalInner);
-    }
-  }
-
-  if (plotModalClose) {
-    plotModalClose.addEventListener('click', closePlotModal);
-  }
-
-  // Close when clicking outside the content
-  if (plotModal) {
-    plotModal.addEventListener('click', function (e) {
-      if (e.target === plotModal) {
-        closePlotModal();
-      }
-    });
-  }
-
   // ===================== RENDER DISRUPTION DATA =====================
   function renderDisruptionData(data) {
     console.log("Rendering disruption data:", data);
@@ -847,6 +956,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bar charts
+
+    const plotConfig = {
+    responsive: true,
+    displayModeBar: false,
+    staticPlot: false
+  };
 
   // ===================== CSV EXPORT FUNCTIONS =====================
     window.exportDF = function () {
@@ -952,13 +1067,10 @@ window.exportDSD = function () {
         //title: "Disruption Frequency by Company",
         margin: { t: 40, r: 20, b: 40, l: 160 },
         xaxis: { title: "Number of Disruptions" },
-        yaxis: { automargin: true } 
+        yaxis: { automargin: true} 
       };
 
-      Plotly.newPlot("df-bar", dfTraces, dfLayout, { responsive: true });
-      document.getElementById("df-bar").onclick = function () {
-        openPlotModal(dfTraces, dfLayout);
-      };
+      Plotly.newPlot("df-bar", dfTraces, dfLayout, plotConfig);
     } else {
       Plotly.purge('df-bar');
     }
@@ -978,10 +1090,7 @@ window.exportDSD = function () {
         yaxis: { title: "Count of Occurences" }
       };
 
-      Plotly.newPlot("art-histogram", artTraces, artLayout, { responsive: true });
-      document.getElementById("art-histogram").onclick = function () {
-        openPlotModal(artTraces, artLayout);
-      };
+      Plotly.newPlot("art-histogram", artTraces, artLayout, plotConfig);
     } else {
       Plotly.purge('art-histogram');
     }
@@ -1007,10 +1116,7 @@ window.exportDSD = function () {
         yaxis: { automargin: true }
       };
 
-      Plotly.newPlot("hdr-bar", hdrTraces, hdrLayout, { responsive: true });
-      document.getElementById("hdr-bar").onclick = function () {
-        openPlotModal(hdrTraces, hdrLayout);
-      };
+      Plotly.newPlot("hdr-bar", hdrTraces, hdrLayout, plotConfig);
     } else {
       Plotly.purge('hdr-bar');
     }
@@ -1030,10 +1136,7 @@ window.exportDSD = function () {
         yaxis: { title: "Count of Occurences" }
       };
 
-      Plotly.newPlot("td-histogram", tdTraces, tdLayout, { responsive: true });
-      document.getElementById("td-histogram").onclick = function () {
-        openPlotModal(tdTraces, tdLayout);
-      };
+      Plotly.newPlot("td-histogram", tdTraces, tdLayout, plotConfig);
     } else {
       Plotly.purge('td-histogram');
     }
@@ -1054,10 +1157,7 @@ window.exportDSD = function () {
         margin: { t: 40, r: 20, b: 80, l: 60 }
       };
 
-      Plotly.newPlot("rrc-heatmap", rrcTraces, rrcLayout, { responsive: true });
-      document.getElementById("rrc-heatmap").onclick = function () {
-        openPlotModal(rrcTraces, rrcLayout);
-      };
+      Plotly.newPlot("rrc-heatmap", rrcTraces, rrcLayout, plotConfig);
     } else {
       Plotly.purge('rrc-heatmap');
     }
@@ -1105,10 +1205,7 @@ window.exportDSD = function () {
         yaxis: { automargin: true }
       };
 
-      Plotly.newPlot("dsd-bar", dsdTraces, dsdLayout, { responsive: true });
-      document.getElementById("dsd-bar").onclick = function () {
-        openPlotModal(dsdTraces, dsdLayout);
-      };
+      Plotly.newPlot("dsd-bar", dsdTraces, dsdLayout, plotConfig);
     } else {
       Plotly.purge('dsd-bar');
     }
@@ -1140,8 +1237,112 @@ function downloadCSV(headersArray, rowsArray, filename) {
   URL.revokeObjectURL(url);
 }
 
-  // ===================== LOAD INITIAL DATA =====================
-  ajaxGet("disruptions.php?action=disruptions", renderDisruptionData);
+  window.exportFullDataset = function () {
+    var qs = buildFilterQuery('export_events');
+    // Trigger file download
+    window.location.href = "disruptions.php?" + qs;
+  };
+
+
+// Build a query string for the current filters + an action name
+function buildFilterQuery(actionName) {
+    var params = "action=" + encodeURIComponent(actionName);
+
+    if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId);
+    if (currentRegion)   params += "&region="  + encodeURIComponent(currentRegion);
+    if (currentTier)     params += "&tier="    + encodeURIComponent(currentTier);
+
+    var startDate = document.getElementById("disruption-start-date").value;
+    var endDate   = document.getElementById("disruption-end-date").value;
+
+    if (startDate) params += "&start_date=" + encodeURIComponent(startDate);
+    if (endDate)   params += "&end_date="   + encodeURIComponent(endDate);
+
+    return params;
+  }
+
+// ====== Card zoom (reuse pattern from Senior Manager) ======
+function setupCardZoom() {
+  const boxes   = document.querySelectorAll('.card[data-box-id]');
+  const overlay = document.getElementById('box-overlay');
+  if (!overlay || boxes.length === 0) return;
+
+  boxes.forEach(box => {
+    const zoomBtn = box.querySelector('.zoom-btn');
+    if (!zoomBtn) return;
+
+    zoomBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+
+      const isExpanded = box.classList.contains('expanded');
+
+      // collapse any other expanded cards
+      document.querySelectorAll('.card.expanded').forEach(b => {
+        if (b !== box) {
+          b.classList.remove('expanded');
+          const otherBtn = b.querySelector('.zoom-btn');
+          if (otherBtn) {
+            otherBtn.textContent = '+';
+            otherBtn.title = 'Expand chart';
+          }
+        }
+      });
+
+      if (isExpanded) {
+        box.classList.remove('expanded');
+        overlay.classList.remove('show');
+        zoomBtn.textContent = '+';
+        zoomBtn.title = 'Expand chart';
+        resizeChartsInBox(box);
+      } else {
+        box.classList.add('expanded');
+        overlay.classList.add('show');
+        zoomBtn.textContent = '-';
+        zoomBtn.title = 'Close';
+        setTimeout(() => resizeChartsInBox(box), 150);
+      }
+    });
+  });
+
+  // clicking on the dark overlay collapses everything
+  overlay.addEventListener('click', () => {
+    document.querySelectorAll('.card.expanded').forEach(b => {
+      b.classList.remove('expanded');
+      const btn = b.querySelector('.zoom-btn');
+      if (btn) {
+        btn.textContent = '+';
+        btn.title = 'Expand chart';
+      }
+      resizeChartsInBox(b);
+    });
+    overlay.classList.remove('show');
+  });
+}
+
+// resize any Plotly charts inside the card
+function resizeChartsInBox(box) {
+  const chartDivs = box.querySelectorAll('.graph-container[id]');
+  chartDivs.forEach(div => {
+    if (window.Plotly) {
+      Plotly.Plots.resize(div);
+    }
+  });
+}
+
+// run after DOM is ready
+document.addEventListener('DOMContentLoaded', function () {
+  setupCardZoom();
+});
+
+  // ===================== LOAD INITIAL DATA (YTD) =====================
+  var initialStart = window._ytdStart;
+  var initialEnd   = window._ytdEnd;
+
+  var initialParams = "action=disruptions";
+  if (initialStart) initialParams += "&start_date=" + encodeURIComponent(initialStart);
+  if (initialEnd)   initialParams += "&end_date="   + encodeURIComponent(initialEnd);
+
+  ajaxGet("disruptions.php?" + initialParams, renderDisruptionData);
 
   // ===================== SENIOR MANAGER TAB =====================
   fetch('role.php')
@@ -1158,7 +1359,7 @@ function downloadCSV(headersArray, rowsArray, filename) {
 
       const seniorLink = document.createElement('a');
       seniorLink.id = 'SeniorModuleTab';
-      seniorLink.href = 'senior_manager.html';
+      seniorLink.href = 'senior_manager.php';
       seniorLink.textContent = 'Senior Module';
 
       navLinks.insertBefore(seniorLink, navLinks.firstChild);
