@@ -914,15 +914,16 @@ if (isset($_GET['action']) || isset($_POST['action'])) {
 <head>
   <title>Senior Manager Module</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <link rel="stylesheet" href="css/dashboard.css?v=14">
 </head>
 <body>
 
 <nav style="display: flex; align-items: center; padding: 10px 20px; background-color: #e8e8e8; border-bottom: 1px solid #ddd;">
   <div class="nav-links" style="font-size: 12px;">
-    <a href="company.php" class="active" >Company Information</a>
-    <a href="disruptions.php" class="active" >Disruption Events</a>
-    <a href="transactions.php" class="active" >Transactions</a>
+    <a href="company.php" >Company Information</a>
+    <a href="disruptions.php" >Disruption Events</a>
+    <a href="transactions.php" >Transactions</a>
      <button class="logout-btn" onclick="logout()">
         <img src="logout.png" alt="Log Out">
     <script>
@@ -935,6 +936,14 @@ if (isset($_GET['action']) || isset($_POST['action'])) {
     </script>
   </div>
   <div style="flex-grow: 1;"></div>
+
+    <button class="layout-btn customize" id="customize-layout-btn" onclick="toggleCustomizeMode()">
+      Customize Layout
+    </button>
+    <button class="layout-btn reset" id="reset-layout-btn" onclick="resetLayout()">
+      Reset Layout
+    </button>
+</nav>
 </nav>
 
 <div id="box-overlay"></div>
@@ -1258,6 +1267,8 @@ document.addEventListener('DOMContentLoaded', function() {
   loadDisruptionSeverityByRegion();  
   loadFinancialHealthByRegion();     
   setupBoxZoom();
+  setupDragAndDrop();  // ADD THIS
+  loadSavedLayout();   // ADD THIS
 });
 
 function setupBoxZoom() {
@@ -2299,6 +2310,118 @@ function displayFinancialHealthByRegionChart(data) {
   Plotly.newPlot('custom-plot-2', [trace], layout, config);
 }
 
+// ============================================================================
+// DRAG-AND-DROP CUSTOMIZATION
+// ============================================================================
+
+var sortableInstance = null;
+var customizeModeActive = false;
+
+function setupDragAndDrop() {
+  const grid = document.querySelector('.info-grid');
+  
+  sortableInstance = new Sortable(grid, {
+    animation: 200,
+    disabled: true,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    handle: '.info-box',
+    onEnd: function() {
+      saveLayout();
+    }
+  });
+}
+
+function toggleCustomizeMode() {
+  const btn = document.getElementById('customize-layout-btn');
+  const grid = document.querySelector('.info-grid');
+  
+  customizeModeActive = !customizeModeActive;
+  
+  if (customizeModeActive) {
+    sortableInstance.option('disabled', false);
+    btn.classList.add('active');
+    btn.innerHTML = 'Save Layout';
+    grid.classList.add('customize-mode-active');
+    showNotification('Drag and drop boxes to rearrange!', 'info');
+  } else {
+    sortableInstance.option('disabled', true);
+    btn.classList.remove('active');
+    btn.innerHTML = 'Customize Layout';
+    grid.classList.remove('customize-mode-active');
+    saveLayout();
+    showNotification('Layout saved!', 'success');
+  }
+}
+
+function saveLayout() {
+  const grid = document.querySelector('.info-grid');
+  const boxes = grid.querySelectorAll('.info-box');
+  const layout = [];
+  
+  boxes.forEach(box => {
+    layout.push(box.getAttribute('data-box-id'));
+  });
+  
+  localStorage.setItem('dashboard-layout', JSON.stringify(layout));
+}
+
+function loadSavedLayout() {
+  const savedLayout = localStorage.getItem('dashboard-layout');
+  if (!savedLayout) return;
+  
+  try {
+    const layout = JSON.parse(savedLayout);
+    const grid = document.querySelector('.info-grid');
+    
+    layout.forEach(boxId => {
+      const box = grid.querySelector(`[data-box-id="${boxId}"]`);
+      if (box) grid.appendChild(box);
+    });
+  } catch (e) {
+    console.error('Error loading layout:', e);
+  }
+}
+
+function resetLayout() {
+  if (!confirm('Reset dashboard layout to default?')) return;
+  localStorage.removeItem('dashboard-layout');
+  showNotification('Layout reset! Refreshing...', 'info');
+  setTimeout(() => location.reload(), 1000);
+}
+
+function showNotification(message, type) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  `;
+  
+  if (type === 'success') {
+    notification.style.backgroundColor = '#4CAF50';
+    notification.style.color = 'white';
+  } else {
+    notification.style.backgroundColor = '#2196F3';
+    notification.style.color = 'white';
+  }
+  
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transition = 'opacity 0.3s';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
 fetch('role.php')
   .then(response => response.json())
   .then(data => {
@@ -2308,6 +2431,7 @@ fetch('role.php')
     const seniorLink = document.createElement('a');
     seniorLink.id = 'SeniorModuleTab';
     seniorLink.href = 'senior_manager.php';
+    seniorLink.className = 'active';  
     seniorLink.textContent = 'Senior Module';
     navLinks.insertBefore(seniorLink, navLinks.firstChild);
   })
