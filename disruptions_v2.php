@@ -505,7 +505,7 @@ if (isset($_GET['action'])) {
 <head>
     <title>Disruption Analysis Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=14">
+    <link rel="stylesheet" type="text/css" href="css/dashboard.css?v=15">
 </head>
 <body class = "disruptions-page">
 
@@ -514,82 +514,62 @@ if (isset($_GET['action'])) {
       <a href="company.php">Company Information</a>
       <a href="disruptions.php" class="active">Disruption Events</a>
       <a href="transactions.php">Transactions</a>
-       <button class="logout-btn" onclick="logout()">
+      <button class="logout-btn" onclick="logout()">
         <img src="logout.png" alt="Log Out">
-      <script>
-        function logout() {
-            let answer = confirm("Are you sure you want to log out?");
-            if (answer) {
-                window.location.href = "logout.php";
-            }
-        }
-        </script>
+      </button>
   </div>
 
-  <!-- ADD THIS SPACER DIV (exactly like in transactions.php) -->
+  <script>
+    function logout() {
+      let answer = confirm("Are you sure you want to log out?");
+      if (answer) {
+        window.location.href = "logout.php";
+      }
+    }
+  </script>
+
+  <!-- keep links left, filters right -->
   <div style="flex-grow: 1;"></div>
-  
-  <!-- Company search box -->
-  <!-- <div class="search-box-two" style="position: relative;">
-    <input type="text" id="company-search-input" placeholder="Search Company" autocomplete="off" style="height: 34px;">
-    <div class="search-results" id="company-search-results"></div>
-  </div> -->
-<div style="display: flex; align-items: center; gap: 6px;">
-  <div class="search-box-two" style="position: relative; width: 120px;">
-    <input type="text" id="source-search-input" placeholder="Seach Company" autocomplete="off" style="height: 34px;">
-    <div class="search-results" id="source-company-results"></div>
-  </div>
 
-  <!-- Region search box -->
-  <!-- <div class="search-box-two" style="position: relative;">
-    <input type="text" id="region-search-input" placeholder="Search Region" autocomplete="off" style="height: 34px;">
-    <div class="search-results" id="region-search-results"></div>
-  </div> -->
+  <!-- FILTERS – same structure as Transactions, different fields -->
+  <div class="nav-filter-container">
 
-  <div class="search-box-two" style="position: relative; width: 90px;">
-    <!-- Input with autocomplete off - standard HTML practice -->
-    <input type="text" id="region-search-input" placeholder="Region" autocomplete="off" style="height: 34px;">
-    <div class="search-results" id="region-search-results"></div>
-  </div>
+    <!-- Dates -->
+    <input type="date" id="disruption-start-date">
+    <input type="date" id="disruption-end-date">
 
-  <!-- Tier filter -->
-  <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-    <select id="tier-filter" style="height: 34px;">
-        <option value="">Tier level</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
+    <!-- Region search -->
+    <div class="search-box-two">
+      <input type="text"
+             id="region-search-input"
+             placeholder="Region"
+             autocomplete="off">
+      <div class="search-results" id="region-search-results"></div>
+    </div>
+
+    <!-- Company search -->
+    <div class="search-box-two">
+      <input type="text"
+             id="company-search-input"
+             placeholder="Search Company"
+             autocomplete="off">
+      <div class="search-results" id="company-search-results"></div>
+    </div>
+
+    <!-- Tier -->
+    <select id="tier-filter">
+      <option value="">Tier level</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
     </select>
 
-  <!-- Date range filters -->
-    <input type="date" id="disruption-start-date"
-           style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
-
-    <input type="date" id="disruption-end-date"
-           style="width: 130px; height: 34px; padding: 6px 10px; font-size: 13px; border: 1px solid #999; border-radius: 4px;">
-
-  <!-- Apply/Clear Filter buttons -->
-    <!-- <button class="btn" onclick="applyFilters()" style="height: 34px; padding: 0 15px;">
-        Apply Filters
-    </button>
-
-    <button class="btn" onclick="clearFilters()" style="height: 34px; padding: 0 15px;">
-        Clear Filters
-    </button> -->
-    <button class="btn"
-      onclick="applyFilters()"
-      style="height: 34px; padding: 0 4px;">
-      Apply Filters
-    </button>
-
-    <button class="btn"
-      onclick="clearFilters()"
-      style="height: 34px; padding: 0 4px;">
-      Clear Filters
-    </button>
-  </div>
+    <!-- Buttons -->
+    <button class="btn" onclick="applyFilters()">Apply Filters</button>
+    <button class="btn" onclick="clearFilters()">Clear Filters</button>
   </div>
 </nav>
+
 <div id="box-overlay"></div>
 
 <!-- ==================== DASHBOARD CONTENT ==================== -->

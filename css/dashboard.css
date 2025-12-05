@@ -14,6 +14,12 @@ body {
     color: #333;
 }
 
+body.company-page .card:first-child {
+    background-color: #ffffff;  /* Match other cards */
+    border: 1px solid #e0e0e0;  /* Match other cards */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);  /* Match other cards */
+}
+
 /* ------------------------------------------------------------------ */
 /* NAV BAR – SHARED STYLING                                           */
 /* ------------------------------------------------------------------ */
@@ -164,6 +170,9 @@ nav input[type="date"] {
 nav .btn {
     padding: 6px 15px;
     margin-top: 0;
+    background: linear-gradient(135deg, #4CAF50, #43A047) !important;
+    color: #ffffff !important;
+    border: none !important;
 }
 
 /* Filter container in nav */
@@ -322,8 +331,8 @@ body.disruptions-page .card {
 .info-box:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10);
     border-color: #4CAF50;
-    transform: translateY(-2px);
 }
+
 
 /* Card title (Disruptions) */
 .card-title {
@@ -487,15 +496,16 @@ textarea {
 /* SHARED CHART CONTAINERS                                            */
 /* ------------------------------------------------------------------ */
 
-.graph-container,
-.chart-container {
+body.disruptions-page .graph-container,
+body.disruptions-page .chart-container {
     width: 100%;
-    height: 280px;
+    min-height: 260px;
     margin: 8px 0 12px 0;
     padding: 4px;
     border-radius: 6px;
     background: #fafbff;
     border: 1px solid #edf0f6;
+    overflow: hidden;
 }
 
 /* Senior-specific minimum height */
@@ -508,6 +518,48 @@ textarea {
 .info-box:nth-child(11) .chart-container,
 .info-box:nth-child(12) .chart-container {
     min-height: 140px;
+}
+
+/* Normal plot containers inside cards */
+.graph-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 200px;              /* normal dashboard height */
+    overflow: hidden;
+}
+
+/* Make Plotly fill its graph container in all states */
+.graph-container .plotly,
+.graph-container .js-plotly-plot,
+.graph-container .plot-container,
+.graph-container .svg-container {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Base graph box */
+.graph-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 200px;      /* normal dashboard height */
+    overflow: hidden;
+}
+
+/* When the card is expanded, let the graph area grow */
+.card.expanded .graph-container {
+    height: calc(100% - 70px);   /* card height minus header/title */
+}
+
+/* When a card is expanded, let the transaction charts fill it too */
+.card.expanded .chart-wrapper {
+    height: calc(100% - 70px) !important;  /* same offset as graph-container */
+    max-height: none !important;
 }
 
 /* ------------------------------------------------------------------ */
@@ -926,36 +978,37 @@ textarea {
     position: fixed !important;
     top: 50%;
     left: 50%;
-    width: 90vw;
-    height: 92vh;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);  /* always centered */
+    width: 90vw !important;             /* almost full screen */
+    height: 80vh !important;
+    max-width: 90vw !important;
+    max-height: 80vh !important;
+
     z-index: 1001;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     border: 2px solid #4CAF50;
     background: #fff;
-    padding: 18px;
-    padding-bottom: 30px;
-    cursor: default;
+
+    padding: 18px 20px 20px 20px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
 }
+
 
 /* Expanded list & chart area behavior (primarily for Senior) */
 .info-box.expanded .company-list {
-    max-height: none;
-    height: calc(100% - 100px);
+    max-height: none !important;
+    height: calc(100% - 100px) !important;
     overflow-y: auto;
 }
 
-.info-box.expanded .chart-container,
-.card.expanded .graph-container {
-    max-height: none;
-    min-height: calc(100% - 100px);
-    height: calc(100% - 100px);
+.info-box.expanded .chart-container {
+    max-height: none !important;
+    min-height: calc(100% - 100px) !important;
+    height: calc(100% - 100px) !important;
     flex: 1;
-}
-
-.info-box.expanded:hover,
-.card.expanded:hover {
-    transform: translate(-50%, -50%);
+    overflow: auto;
 }
 
 .info-box.expanded .zoom-btn,
@@ -1013,13 +1066,6 @@ body.company-page .card {
 /* COMPANY PAGE SPECIFIC STYLES                                       */
 /* ------------------------------------------------------------------ */
 
-/* Make first card match the others (remove special styling) */
-.card:first-child {
-    background-color: #ffffff;  /* Match other cards */
-    border: 1px solid #e0e0e0;  /* Match other cards */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);  /* Match other cards */
-}
-
 /* Change font for inputs/textareas in first card */
 .card:first-child input,
 .card:first-child select,
@@ -1070,29 +1116,117 @@ body.company-page .card {
     height: 100% !important;
 }
 
-/*All plots centered when zoomed in*/
-.info-box.expanded,
-.zoom-box.expanded {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    
-    width: 90vw !important;       /* Expand to most of the viewport width */
-    max-width: 1400px !important; /* Matches Senior Module visual behavior */
-    height: 90vh !important;
-    
-    background: white !important;
-    z-index: 9999 !important;
-    overflow: auto !important;
-    border-radius: 10px !important;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.2) !important;
+/* ------------------------------------------------------------------ */
+/* DRAG-AND-DROP CUSTOMIZATION (NEW - DO NOT MODIFY EXISTING)         */
+/* ------------------------------------------------------------------ */
+
+.info-box.sortable-ghost {
+    opacity: 0.4;
+    background-color: #e3f2fd;
 }
 
-/* Ensures the Plotly chart itself expands to fill the modal */
-.info-box.expanded .chart-container,
-.zoom-box.expanded .chart-container {
+.info-box.sortable-drag {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    transform: rotate(2deg);
+}
+
+.layout-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 0 20px;
+}
+
+.layout-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.layout-btn.customize {
+    background-color: #2196F3;
+    color: white;
+}
+
+.layout-btn.customize:hover {
+    background-color: #1976D2;
+}
+
+.layout-btn.reset {
+    background-color: #ff9800;
+    color: white;
+}
+
+.layout-btn.reset:hover {
+    background-color: #f57c00;
+}
+
+.layout-btn.customize.active {
+    background-color: #4CAF50;
+}
+
+.layout-btn.customize.active:hover {
+    background-color: #388E3C;
+}
+
+.customize-mode-active .info-box {
+    border: 2px dashed #2196F3 !important;
+}
+
+.customize-mode-active .info-box::before {
+    content: "⋮⋮";
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 20px;
+    color: #2196F3;
+    font-weight: bold;
+    opacity: 0.5;
+    z-index: 10;
+}
+
+/* Layout buttons in nav bar */
+nav .layout-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    /* margin-left: 1px; */
+}
+
+/* normal state */
+.graph-container {
+    position: relative;
+    width: 100%;
+    height: 200px;          /* normal dashboard size */
+}
+
+/* let the graph fill the expanded card */
+.card.expanded .graph-container,
+.info-box.expanded .graph-container {
+    height: calc(100% - 60px);  /* header + padding */
+}
+
+/* make Plotly use all of the container space */
+.graph-container .plotly,
+.graph-container .js-plotly-plot,
+.graph-container .plot-container,
+.graph-container .svg-container {
     width: 100% !important;
     height: 100% !important;
-    margin: 0 auto !important;
 }
+

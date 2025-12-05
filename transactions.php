@@ -620,7 +620,7 @@ if (isset($_GET['action'])) {
 <!-- Plotly library - from ajax_example.html line 6 -->
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 
-<link rel="stylesheet" href="css/dashboard.css?v=7">
+<link rel="stylesheet" href="css/dashboard.css?v=15">
 
 </head>
 <body>
@@ -628,30 +628,12 @@ if (isset($_GET['action'])) {
 <!-- Navigation Bar Structure - Inspired by HTML lab (html_lab_sols1.pdf problem 25.1) -->
 <nav>
     <div class="nav-links">
-
-        <a href="company.php" class="active"
-            onmouseover="this.style.background='#d0d0d0'"
-            onmouseout="this.style.background='transparent'">
-            Company Information
-        </a>
-
-        <a href="disruptions.php" class="active"
-            onmouseover="this.style.background='#d0d0d0'"
-            onmouseout="this.style.background='transparent'">
-            Disruption Events
-        </a>
-
-        <a href="transactions.php" class="active"
-            onmouseover="this.style.background='#d0d0d0'"
-            onmouseout="this.style.background='transparent'">
-            Transactions
-        </a>
-
-        <button onclick="logout()">Log Out</button>
-
-        <script>
-        // confirm() method - from JS lab (js_lab_sols2__1_.pdf problem 9)
-        // Source: https://www.w3schools.com/jsref/met_win_confirm.asp
+      <a href="company.php">Company Information</a>
+      <a href="disruptions.php">Disruption Events</a>
+      <a href="transactions.php" class="active">Transactions</a>
+       <button class="logout-btn" onclick="logout()">
+        <img src="logout.png" alt="Log Out">
+      <script>
         function logout() {
             let answer = confirm("Are you sure you want to log out?");
             if (answer) {
@@ -710,11 +692,17 @@ if (isset($_GET['action'])) {
         </div>
 
         <!-- Button onclick handler - from JS lab (js_lab_sols2__1_.pdf problem 9) -->
-        <button class="btn" onclick="applyFilters()"
-            style="height: 34px; padding: 0 4px;">Apply Filters</button>
+     <button class="btn"
+      onclick="applyFilters()"
+      style="height: 34px; padding: 0 4px;">
+      Apply Filters
+    </button>
 
-        <button class="btn" onclick="clearFilters()"
-            style="height: 34px; padding: 0 4px;">Clear Filters</button>
+    <button class="btn"
+      onclick="clearFilters()"
+      style="height: 34px; padding: 0 4px;">
+      Clear Filters
+    </button>
 
     </div>
 </nav>
@@ -834,9 +822,10 @@ if (isset($_GET['action'])) {
                 Distributors By Volume
             </h3>
             <div id="plot-1" class="graph-container"
-                style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;">
+                style="border-radius: 4px;">
             </div>
         </div>
+
 
         <div class="card" style="padding: 12px; height: 250px;">
             <button class="zoom-btn" type="button">+</button>
@@ -844,7 +833,7 @@ if (isset($_GET['action'])) {
                 On-Time Delivery Rates
             </h3>
             <div id="plot-2" class="graph-container"
-                style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;">
+                style="border-radius: 4px;">
             </div>
         </div>
 
@@ -854,7 +843,7 @@ if (isset($_GET['action'])) {
                 Shipment Status Distribution
             </h3>
             <div id="plot-3" class="graph-container"
-                style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;">
+                style="border-radius: 4px;">
             </div>
         </div>
 
@@ -864,7 +853,7 @@ if (isset($_GET['action'])) {
                 Products By Volume
             </h3>
             <div id="plot-4" class="graph-container"
-                style="height: 200px; border: 2px dashed #ddd; border-radius: 4px;">
+                style="border-radius: 4px;">
             </div>
         </div>
 
@@ -1503,6 +1492,7 @@ if (isset($_GET['action'])) {
             // =====================================================================
 
             var layout1 = {
+                autosize: true,
                 xaxis: {
                     tickangle: -45,
                     tickfont: { size: 6 },
@@ -1513,12 +1503,15 @@ if (isset($_GET['action'])) {
                     titlefont: { size: 9 },
                     automargin: true
                 },
-                margin: { t: 35, r: 15, b: 90, l: 45 },
-                height: 200
+                margin: { t: 35, r: 15, b: 90, l: 45 }
             };
 
             // Plotly.newPlot() - from ajax_example.html line 65
-            Plotly.newPlot('plot-1', [trace1], layout1, {displayModeBar: false});
+Plotly.newPlot('plot-1', [trace1], layout1, {
+    displayModeBar: false,
+    responsive: true
+});
+
         } else {
             Plotly.purge('plot-1');
         }
@@ -1552,6 +1545,7 @@ if (isset($_GET['action'])) {
             // =====================================================================
 
             var layout2 = {
+                autosize: true,
                 xaxis: {
                     title: 'Delivery Rate (%)',
                     titlefont: { size: 9 },
@@ -1562,11 +1556,14 @@ if (isset($_GET['action'])) {
                     tickfont: { size: 6 },
                     automargin: true
                 },
-                margin: { t: 35, r: 15, b: 35, l: 160 },
-                height: 200
+                margin: { t: 35, r: 15, b: 35, l: 60 }
             };
 
-            Plotly.newPlot('plot-2', [trace2], layout2, {displayModeBar: false});
+Plotly.newPlot('plot-2', [trace2], layout2, {
+    displayModeBar: false,
+    responsive: true
+});
+
         } else {
             Plotly.purge('plot-2');
         }
@@ -1601,8 +1598,8 @@ if (isset($_GET['action'])) {
             };
 
             var layout3 = {
+                autosize: true,   // NEW
                 margin: { t: 35, r: 15, b: 15, l: 15 },
-                height: 200,
                 showlegend: true,
                 legend: {
                     orientation: 'h',
@@ -1613,7 +1610,11 @@ if (isset($_GET['action'])) {
                 }
             };
 
-            Plotly.newPlot('plot-3', [trace3], layout3, {displayModeBar: false});
+Plotly.newPlot('plot-3', [trace3], layout3, {
+    displayModeBar: false,
+    responsive: true
+});
+
         } else {
             Plotly.purge('plot-3');
         }
@@ -1640,6 +1641,7 @@ if (isset($_GET['action'])) {
             // Smaller fonts and increased margin for product names
             // automargin helps with long product names
             var layout4 = {
+                autosize: true,   // NEW
                 xaxis: {
                     tickangle: -45,
                     tickfont: { size: 6 },
@@ -1650,11 +1652,14 @@ if (isset($_GET['action'])) {
                     titlefont: { size: 9 },
                     automargin: true
                 },
-                margin: { t: 35, r: 15, b: 90, l: 45 },
-                height: 200
+                margin: { t: 35, r: 15, b: 90, l: 45 }
             };
 
-            Plotly.newPlot('plot-4', [trace4], layout4, {displayModeBar: false});
+Plotly.newPlot('plot-4', [trace4], layout4, {
+    displayModeBar: false,
+    responsive: true
+});
+
         } else {
             Plotly.purge('plot-4');
         }
@@ -1750,45 +1755,67 @@ if (isset($_GET['action'])) {
             console.error('Role check failed:', err);
         })
 
+
+    function resizeAllPlots() {
+    const graphs = document.querySelectorAll('.graph-container');
+    graphs.forEach(function (graph) {
+        try {
+            Plotly.Plots.resize(graph);
+        } catch (e) {
+            console.warn('Plot resize failed for', graph.id, e);
+        }
+    });
+}
     // =====================================================================
     // CARD ZOOM FOR TRANSACTIONS PLOTS
     // Uses .card, .zoom-btn, #box-overlay, .card.expanded styles from CSS
     // =====================================================================
 
     document.addEventListener('DOMContentLoaded', function () {
-        const overlay = document.getElementById('box-overlay');
-        if (!overlay) {
-            console.error('box-overlay not found – zoom will not work');
-            return;
-        }
+    const overlay = document.getElementById('box-overlay');
+    if (!overlay) {
+        console.error('box-overlay not found - zoom will not work');
+        return;
+    }
 
-        const zoomButtons = document.querySelectorAll('.card .zoom-btn');
-        zoomButtons.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const card = this.closest('.card');
-                if (!card) return;
+    const zoomButtons = document.querySelectorAll('.card .zoom-btn');
 
-                const isExpanded = card.classList.toggle('expanded');
+    zoomButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const card = this.closest('.card');
+            if (!card) return;
 
-                // Toggle + / − icon
-                this.textContent = isExpanded ? '-' : '+';
+            const isExpanded = card.classList.toggle('expanded');
 
-                // Show / hide overlay
-                if (isExpanded) {
-                    overlay.classList.add('show');
-                } else {
-                    overlay.classList.remove('show');
-                }
+            // Toggle + / − icon
+            this.textContent = isExpanded ? '-' : '+';
 
-                // Let Plotly resize in the new space
-                const graph = card.querySelector('.graph-container');
-                if (graph && graph.id) {
-                    setTimeout(function () {
-                        Plotly.Plots.resize(graph);
-                    }, 150);
-                }
-            });
+            // Show / hide overlay
+            if (isExpanded) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+
+            // ✅ resize ALL plots after the animation
+            setTimeout(resizeAllPlots, 250);
         });
+    });
+
+    // Clicking the overlay collapses any expanded card
+    overlay.addEventListener('click', function () {
+        const expandedCard = document.querySelector('.card.expanded');
+        if (!expandedCard) return;
+
+        expandedCard.classList.remove('expanded');
+        const btn = expandedCard.querySelector('.zoom-btn');
+        if (btn) btn.textContent = '+';
+        overlay.classList.remove('show');
+
+        // ✅ also resize ALL plots when closing via overlay
+        setTimeout(resizeAllPlots, 250);
+    });
+});
 
         // Clicking the overlay collapses any expanded card
         overlay.addEventListener('click', function () {
@@ -1800,7 +1827,6 @@ if (isset($_GET['action'])) {
             if (btn) btn.textContent = '+';
             overlay.classList.remove('show');
         });
-    });
 </script>
 
 </body>
