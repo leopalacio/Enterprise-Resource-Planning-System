@@ -56,8 +56,10 @@ if (isset($_GET['action']) || isset($_POST['action']) || isset($_GET['company'])
        ob_clean();
    }
   
-   header('Content-Type: application/json');
-
+   // Don't set JSON header yet - let CSV export set its own header
+   if (isset($_GET['action']) && $_GET['action'] !== 'export_csv') {
+       header('Content-Type: application/json');
+   }
 
 
 
@@ -379,10 +381,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'kpi') {
    $df = ($s && $e) ? "AND s.PromisedDate BETWEEN '$s' AND '$e'" : '';
   
    // On-time delivery rate
-   $q1 = "SELECT SUM(CASE WHEN s.ActualDate<=s.PromisedDate THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0) AS Rate
-          FROM Shipping s
-          WHERE s.DestinationCompanyID='$cid' $df";
-   $r1 = mysqli_query($conn, $q1);
+   $q1 = "SELECT SUM(CASE WHEN s.ActualDate<=s.PromisedDate THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0) AS Rate, COUNT(*) as TotalShipments FROM Shipping s WHERE (s.SourceCompanyID='$cid' OR s.DestinationCompanyID='$cid') AND s.ActualDate IS NOT NULL $df";
+      $r1 = mysqli_query($conn, $q1);
    $rate = ($r1 && ($x=mysqli_fetch_assoc($r1)) && $x['Rate'] !== null) ? round($x['Rate'], 1) : null;
   
    // Delay stats
@@ -464,11 +464,374 @@ $q5 = "SELECT dc.CategoryName as EventName, de.EventDate, ic.ImpactLevel
    exit;
 }
 
+// ============================================================================
+// EXPORT TO CSV
+// ============================================================================
+if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
+    // ✅ STEP 1: Turn off ALL errors immediately
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    
+    // ✅ STEP 2: Clear ALL output buffers
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // ✅ STEP 3: Get parameters
+    $type = mysqli_real_escape_string($conn, $_GET['type']);
+    $cid = mysqli_real_escape_string($conn, $_GET['company']);
+    $s = isset($_GET['start_date']) ? mysqli_real_escape_string($conn, $_GET['start_date']) : '';
+    $e = isset($_GET['end_date']) ? mysqli_real_escape_string($conn, $_GET['end_date']) : '';
+    
+    // ✅ STEP 4: Set headers and create output
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $type . '_export_' . date('Y-m-d') . '.csv"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    
+    $output = fopen('php://output', 'w');
+    
+    if ($type === 'transactions') {
+    // ✅ TEMPORARILY IGNORE DATE FILTER TO TEST
+    $filter = ""; // Remove date filtering temporarily
+    
+    fputcsv($output, ['Type', 'ID', 'Product', 'Company/Route', 'Date', 'Quantity', 'Status/Reason']);
+    
+    // ✅ ADD DEBUG ROW
+    fputcsv($output, ['DEBUG', 'CompanyID: ' . $cid, 'Start: ' . $s, 'End: ' . $e, '', '', '']);
+        // Shipping
+        $sql = "SELECT 'Shipping' as Type, s.ShipmentID, p.ProductName, 
+                CONCAT(cs.CompanyName, ' → ', cd.CompanyName) as Route,
+                s.PromisedDate, s.ActualDate, s.Quantity
+                FROM Shipping s
+                JOIN Product p ON p.ProductID = s.ProductID
+                JOIN Company cs ON cs.CompanyID = s.SourceCompanyID
+                JOIN Company cd ON cd.CompanyID = s.DestinationCompanyID
+                WHERE (s.SourceCompanyID='$cid' OR s.DestinationCompanyID='$cid') $filter";
+        
+        $res = @mysqli_query($conn, $sql);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                fputcsv($output, [
+                    $row['Type'],
+                    $row['ShipmentID'],
+                    $row['ProductName'],
+                    $row['Route'],
+                    $row['PromisedDate'] . ' (Promised), ' . ($row['ActualDate'] ?: 'Pending') . ' (Actual)',
+                    $row['Quantity'],
+                    $row['ActualDate'] ? 'Completed' : 'Pending'
+                ]);
+            }
+        }
+        
+        // Receiving
+        $sql = "SELECT 'Receiving' as Type, r.ReceivingID, p.ProductName, c.CompanyName,
+                r.ReceivedDate, r.QuantityReceived
+                FROM Receiving r
+                JOIN Shipping s ON s.ShipmentID = r.ShipmentID
+                JOIN Product p ON p.ProductID = s.ProductID
+                JOIN Company c ON c.CompanyID = r.ReceiverCompanyID
+                WHERE r.ReceiverCompanyID='$cid' $filter";
+        
+        $res = @mysqli_query($conn, $sql);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                fputcsv($output, [
+                    $row['Type'],
+                    $row['ReceivingID'],
+                    $row['ProductName'],
+                    $row['CompanyName'],
+                    $row['ReceivedDate'],
+                    $row['QuantityReceived'],
+                    'Completed'
+                ]);
+            }
+        }
+        
+        // Adjustments
+        $sql = "SELECT 'Adjustment' as Type, a.AdjustmentID, p.ProductName, c.CompanyName,
+                a.AdjustmentDate, a.QuantityChange, a.Reason
+                FROM InventoryAdjustment a
+                JOIN Product p ON p.ProductID = a.ProductID
+                JOIN Company c ON c.CompanyID = a.CompanyID
+                WHERE a.CompanyID='$cid' $filter";
+        
+        $res = @mysqli_query($conn, $sql);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                fputcsv($output, [
+                    $row['Type'],
+                    $row['AdjustmentID'],
+                    $row['ProductName'],
+                    $row['CompanyName'],
+                    $row['AdjustmentDate'],
+                    $row['QuantityChange'],
+                    $row['Reason']
+                ]);
+            }
+        }
+        
+    } elseif ($type === 'kpi') {
+        $df = ($s && $e) ? "AND s.PromisedDate BETWEEN '$s' AND '$e'" : '';
+        
+        fputcsv($output, ['Metric', 'Value']);
+        
+        $q1 = "SELECT SUM(CASE WHEN s.ActualDate<=s.PromisedDate THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0) AS Rate
+               FROM Shipping s WHERE s.DestinationCompanyID='$cid' $df";
+        $r1 = @mysqli_query($conn, $q1);
+        $rate = ($r1 && ($x=mysqli_fetch_assoc($r1)) && $x['Rate'] !== null) ? round($x['Rate'], 1) . '%' : 'N/A';
+        fputcsv($output, ['On-Time Delivery Rate', $rate]);
+        
+        $q2 = "SELECT AVG(DATEDIFF(s.ActualDate, s.PromisedDate)) AS avgDelay,
+                      STDDEV(DATEDIFF(s.ActualDate, s.PromisedDate)) AS stdDelay
+               FROM Shipping s WHERE s.DestinationCompanyID='$cid' AND s.ActualDate IS NOT NULL $df";
+        $r2 = @mysqli_query($conn, $q2);
+        $row2 = $r2 ? mysqli_fetch_assoc($r2) : [];
+        fputcsv($output, ['Average Delay (days)', isset($row2['avgDelay']) ? round($row2['avgDelay'], 1) : 'N/A']);
+        fputcsv($output, ['Std Dev of Delay (days)', isset($row2['stdDelay']) ? round($row2['stdDelay'], 1) : 'N/A']);
+        
+        $q3 = "SELECT HealthScore, Quarter, RepYear FROM FinancialReport
+               WHERE CompanyID='$cid' ORDER BY RepYear DESC, FIELD(Quarter,'Q4','Q3','Q2','Q1') LIMIT 1";
+        $r3 = @mysqli_query($conn, $q3);
+        $fin = ($r3 && ($y=mysqli_fetch_assoc($r3))) ? $y['HealthScore'] . ' (' . $y['Quarter'] . ' ' . $y['RepYear'] . ')' : 'N/A';
+        fputcsv($output, ['Financial Health Status', $fin]);
+        
+        fputcsv($output, ['', '']);
+        fputcsv($output, ['Quarter', 'Health Score']);
+        $q4 = "SELECT Quarter, RepYear, HealthScore FROM FinancialReport
+               WHERE CompanyID='$cid' ORDER BY RepYear DESC, FIELD(Quarter,'Q4','Q3','Q2','Q1') LIMIT 8";
+        $r4 = @mysqli_query($conn, $q4);
+        if ($r4) {
+            while ($row = mysqli_fetch_assoc($r4)) {
+                fputcsv($output, [$row['Quarter'] . ' ' . $row['RepYear'], $row['HealthScore']]);
+            }
+        }
+        
+    } elseif ($type === 'company_info') {
+        $res = @mysqli_query($conn, "SELECT CompanyName, Type, TierLevel, LocationID FROM Company WHERE CompanyID='$cid'");
+        $c = $res ? mysqli_fetch_assoc($res) : null;
+        
+        if (!$c) {
+            fputcsv($output, ['Error', 'Company not found']);
+            fclose($output);
+            mysqli_close($conn);
+            exit();
+        }
+        
+        $loc = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT CountryName, ContinentName FROM Location WHERE LocationID='{$c['LocationID']}'"));
+        $up = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(c.CompanyName SEPARATOR ', ') AS Suppliers FROM DependsOn d JOIN Company c ON c.CompanyID=d.UpstreamCompanyID WHERE d.DownstreamCompanyID='$cid'"));
+        $down = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(c.CompanyName SEPARATOR ', ') AS Dependencies FROM DependsOn d JOIN Company c ON c.CompanyID=d.DownstreamCompanyID WHERE d.UpstreamCompanyID='$cid'"));
+        $fin = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT HealthScore, Quarter, RepYear FROM FinancialReport WHERE CompanyID='$cid' ORDER BY RepYear DESC, FIELD(Quarter,'Q4','Q3','Q2','Q1') LIMIT 1"));
+        $cap = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT FactoryCapacity FROM Manufacturer WHERE CompanyID='$cid'"));
+        $routes = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(CONCAT(f.CompanyName,' → ',t.CompanyName) SEPARATOR ', ') AS Routes FROM OperatesLogistics ol JOIN Company f ON f.CompanyID=ol.FromCompanyID JOIN Company t ON t.CompanyID=ol.ToCompanyID WHERE ol.DistributorID='$cid'"));
+        $prod = @mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.ProductName SEPARATOR ', ') AS Products, GROUP_CONCAT(DISTINCT p.Category SEPARATOR ', ') AS Categories FROM SuppliesProduct sp JOIN Product p ON p.ProductID=sp.ProductID WHERE sp.SupplierID='$cid'"));
+        
+        fputcsv($output, ['Field', 'Value']);
+        fputcsv($output, ['Company Name', $c['CompanyName']]);
+        fputcsv($output, ['Address', ($loc ? $loc['CountryName'].', '.$loc['ContinentName'] : 'N/A')]);
+        fputcsv($output, ['Type', $c['Type']]);
+        fputcsv($output, ['Tier Level', $c['TierLevel']]);
+        fputcsv($output, ['Upstream Suppliers', isset($up['Suppliers']) && $up['Suppliers'] ? $up['Suppliers'] : 'N/A']);
+        fputcsv($output, ['Downstream Dependencies', isset($down['Dependencies']) && $down['Dependencies'] ? $down['Dependencies'] : 'N/A']);
+        fputcsv($output, ['Financial Status', $fin ? ($fin['HealthScore']." ({$fin['Quarter']} {$fin['RepYear']})") : "N/A"]);
+        fputcsv($output, ['Capacity', $cap ? $cap['FactoryCapacity']." units/day" : "Not a Manufacturer"]);
+        fputcsv($output, ['Routes Operated', isset($routes['Routes']) && $routes['Routes'] ? $routes['Routes'] : "Not a Distributor"]);
+        fputcsv($output, ['Products', isset($prod['Products']) && $prod['Products'] ? $prod['Products'] : "N/A"]);
+        fputcsv($output, ['Product Diversity', isset($prod['Categories']) && $prod['Categories'] ? $prod['Categories'] : "N/A"]);
+    }
+    
+    fclose($output);
+    mysqli_close($conn);
+    exit();
+}
+
+// ============================================================================
+// SUPPLY CHAIN NETWORK - 2 LEVELS DEEP
+// ============================================================================
+if (isset($_GET['action']) && $_GET['action'] === 'supply_chain_network') {
+    $cid = mysqli_real_escape_string($conn, $_GET['company']);
+    
+    // Get current company
+    $currentSQL = "SELECT CompanyID, CompanyName, Type FROM Company WHERE CompanyID='$cid'";
+    $currentResult = mysqli_query($conn, $currentSQL);
+    $currentCompany = mysqli_fetch_assoc($currentResult);
+    
+    if (!$currentCompany) {
+        echo json_encode(["error" => "Company not found"]);
+        mysqli_close($conn);
+        exit();
+    }
+    
+    $nodes = [];
+    $edges = [];
+    $processedCompanies = [$cid];
+    
+    // Add current company as center node (green)
+    $nodes[] = [
+        'id' => (int)$currentCompany['CompanyID'],
+        'label' => $currentCompany['CompanyName'],
+        'color' => '#22c55e',
+        'size' => 35,
+        'font' => ['size' => 18, 'color' => '#fff', 'bold' => true],
+        'borderWidth' => 4
+    ];
+    
+    // LEVEL 1: Direct Suppliers (Blue)
+    $upstreamSQL = "SELECT c.CompanyID, c.CompanyName, c.Type
+                    FROM DependsOn d
+                    JOIN Company c ON c.CompanyID = d.UpstreamCompanyID
+                    WHERE d.DownstreamCompanyID = '$cid'";
+    $upstreamResult = mysqli_query($conn, $upstreamSQL);
+    $level1Suppliers = [];
+    
+    if ($upstreamResult) {
+        while ($row = mysqli_fetch_assoc($upstreamResult)) {
+            $supplierId = (int)$row['CompanyID'];
+            $level1Suppliers[] = $supplierId;
+            $processedCompanies[] = $supplierId;
+            
+            $nodes[] = [
+                'id' => $supplierId,
+                'label' => $row['CompanyName'],
+                'color' => '#3b82f6',
+                'size' => 25,
+                'shape' => 'box',
+                'font' => ['size' => 14, 'bold' => true]
+            ];
+            $edges[] = [
+                'from' => $supplierId,
+                'to' => (int)$cid,
+                'arrows' => 'to',
+                'color' => '#64748b',
+                'width' => 3
+            ];
+        }
+    }
+    
+    // LEVEL 2: Suppliers' Suppliers (Light Blue)
+    foreach ($level1Suppliers as $supplierId) {
+        $level2SQL = "SELECT c.CompanyID, c.CompanyName, c.Type
+                      FROM DependsOn d
+                      JOIN Company c ON c.CompanyID = d.UpstreamCompanyID
+                      WHERE d.DownstreamCompanyID = '$supplierId'";
+        $level2Result = mysqli_query($conn, $level2SQL);
+        
+        if ($level2Result) {
+            while ($row = mysqli_fetch_assoc($level2Result)) {
+                $level2Id = (int)$row['CompanyID'];
+                
+                if (!in_array($level2Id, $processedCompanies)) {
+                    $processedCompanies[] = $level2Id;
+                    
+                    $nodes[] = [
+                        'id' => $level2Id,
+                        'label' => $row['CompanyName'],
+                        'color' => '#93c5fd',
+                        'size' => 18,
+                        'shape' => 'box',
+                        'font' => ['size' => 11]
+                    ];
+                }
+                
+                $edges[] = [
+                    'from' => $level2Id,
+                    'to' => $supplierId,
+                    'arrows' => 'to',
+                    'color' => '#cbd5e1',
+                    'width' => 1.5,
+                    'dashes' => true
+                ];
+            }
+        }
+    }
+    
+    // LEVEL 1: Direct Customers (Orange)
+    $downstreamSQL = "SELECT c.CompanyID, c.CompanyName, c.Type
+                      FROM DependsOn d
+                      JOIN Company c ON c.CompanyID = d.DownstreamCompanyID
+                      WHERE d.UpstreamCompanyID = '$cid'";
+    $downstreamResult = mysqli_query($conn, $downstreamSQL);
+    $level1Customers = [];
+    
+    if ($downstreamResult) {
+        while ($row = mysqli_fetch_assoc($downstreamResult)) {
+            $customerId = (int)$row['CompanyID'];
+            $level1Customers[] = $customerId;
+            $processedCompanies[] = $customerId;
+            
+            $nodes[] = [
+                'id' => $customerId,
+                'label' => $row['CompanyName'],
+                'color' => '#f59e0b',
+                'size' => 25,
+                'shape' => 'box',
+                'font' => ['size' => 14, 'bold' => true]
+            ];
+            $edges[] = [
+                'from' => (int)$cid,
+                'to' => $customerId,
+                'arrows' => 'to',
+                'color' => '#64748b',
+                'width' => 3
+            ];
+        }
+    }
+    
+    // LEVEL 2: Customers' Customers (Light Orange)
+    foreach ($level1Customers as $customerId) {
+        $level2SQL = "SELECT c.CompanyID, c.CompanyName, c.Type
+                      FROM DependsOn d
+                      JOIN Company c ON c.CompanyID = d.DownstreamCompanyID
+                      WHERE d.UpstreamCompanyID = '$customerId'";
+        $level2Result = mysqli_query($conn, $level2SQL);
+        
+        if ($level2Result) {
+            while ($row = mysqli_fetch_assoc($level2Result)) {
+                $level2Id = (int)$row['CompanyID'];
+                
+                if (!in_array($level2Id, $processedCompanies)) {
+                    $processedCompanies[] = $level2Id;
+                    
+                    $nodes[] = [
+                        'id' => $level2Id,
+                        'label' => $row['CompanyName'],
+                        'color' => '#fcd34d',
+                        'size' => 18,
+                        'shape' => 'box',
+                        'font' => ['size' => 11]
+                    ];
+                }
+                
+                $edges[] = [
+                    'from' => $customerId,
+                    'to' => $level2Id,
+                    'arrows' => 'to',
+                    'color' => '#cbd5e1',
+                    'width' => 1.5,
+                    'dashes' => true
+                ];
+            }
+        }
+    }
+    
+    $response = [
+        'nodes' => $nodes,
+        'edges' => $edges,
+        'stats' => [
+            'suppliers' => count($level1Suppliers),
+            'customers' => count($level1Customers)
+        ]
+    ];
+    
+    echo json_encode($response);
+    mysqli_close($conn);
+    exit();
+}
 
 // ============================================================================
 // COMPANY INFO
 // ============================================================================
-if (isset($_GET['company'])) {
+if (isset($_GET['company']) && !isset($_GET['action'])) {
    ob_clean();
    $cid = mysqli_real_escape_string($conn, $_GET['company']);
   
@@ -497,15 +860,17 @@ if (isset($_GET['company'])) {
    // Capacity (for manufacturers)
    $cap = mysqli_fetch_assoc(mysqli_query($conn, "SELECT FactoryCapacity FROM Manufacturer WHERE CompanyID='$cid'"));
   
-// Routes (for distributors)
-$routes_query = mysqli_query($conn, "SELECT GROUP_CONCAT(CONCAT(f.CompanyName,' → ',t.CompanyName) SEPARATOR ', ') AS Routes FROM OperatesLogistics ol JOIN Company f ON f.CompanyID=ol.FromCompanyID JOIN Company t ON t.CompanyID=ol.ToCompanyID WHERE ol.DistributorID='$cid'");
-$routes = $routes_query ? mysqli_fetch_assoc($routes_query) : null;
-// Products (next line - NO extra routes code here!)
-$prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.ProductName SEPARATOR ', ') AS Products, GROUP_CONCAT(DISTINCT p.Category SEPARATOR ', ') AS Categories FROM SuppliesProduct sp JOIN Product p ON p.ProductID=sp.ProductID WHERE sp.SupplierID='$cid'"));
+   // Routes (for distributors)
+   $routes_query = mysqli_query($conn, "SELECT GROUP_CONCAT(CONCAT(f.CompanyName,' → ',t.CompanyName) SEPARATOR ', ') AS Routes FROM OperatesLogistics ol JOIN Company f ON f.CompanyID=ol.FromCompanyID JOIN Company t ON t.CompanyID=ol.ToCompanyID WHERE ol.DistributorID='$cid'");
+   $routes = ($routes_query && mysqli_num_rows($routes_query) > 0) ? mysqli_fetch_assoc($routes_query) : ['Routes' => null];
+   
+   // Products
+   $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.ProductName SEPARATOR ', ') AS Products, GROUP_CONCAT(DISTINCT p.Category SEPARATOR ', ') AS Categories FROM SuppliesProduct sp JOIN Product p ON p.ProductID=sp.ProductID WHERE sp.SupplierID='$cid'"));
+  
    echo json_encode([
        "CompanyName" => $c['CompanyName'],
        "Address" => ($loc ? $loc['CountryName'].', '.$loc['ContinentName'] : 'N/A'),
-       "LocationID" => $c['LocationID'],  // ✅ ADD THIS LINE
+       "LocationID" => $c['LocationID'],
        "Type" => $c['Type'],
        "TierLevel" => $c['TierLevel'],
        "UpstreamSuppliers" => isset($up['Suppliers']) && $up['Suppliers'] ? $up['Suppliers'] : 'N/A',
@@ -520,10 +885,8 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
    exit;
 }
 
-
+// ⚠️ THIS MUST BE LAST - It catches any unmatched API requests
 // If we're in API mode but no action matched
-
-
    echo json_encode(["error" => "Invalid request"]);
    ob_end_flush();
    mysqli_close($conn);
@@ -532,15 +895,14 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
 ?>
 
 
-
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>Company Information</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-  <link rel="stylesheet" href="css/dashboard.css?v=14">
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="stylesheet" href="css/dashboard.css?v=15">
 
 <style>
   /* Three-column grid - all aligned at top */
@@ -551,13 +913,46 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
     align-items: stretch !important;
   }
   
-  /* Default card styles */
+ /* Default card styles */
   .company-page .card {
     display: flex;
     flex-direction: column;
+    position: relative;
   }
   
-  /* Company Info and Transactions cards - tall with scroll */
+  /* Style for card titles with export buttons */
+  .company-page .card-title-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+  }
+  
+  .company-page .card-title-wrapper .card-title {
+    margin: 0;
+  }
+  
+  .company-page .export-btn {
+    padding: 6px 10px;
+    font-size: 16px;
+    background: white;
+    color: #1f2937;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+  }
+  
+  .company-page .export-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+  
+ /* Tooltip on hover - appears BELOW button to avoid clipping */ .company-page .export-btn::after { content: attr(data-tooltip); position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10000; } .company-page .export-btn:hover::after { opacity: 1; } /* Small arrow pointing UP */ .company-page .export-btn::before { content: ''; position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 4px solid #1f2937; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10000; } .company-page .export-btn:hover::before { opacity: 1; }  
+  
+  
+    /* Company Info and Transactions cards - tall with scroll */
   .company-page .dashboard-grid > .card:nth-child(1),
   .company-page .dashboard-grid > .card:nth-child(2) {
     min-height: 800px;
@@ -600,6 +995,15 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
     height: 200px;
     margin: 10px 0;
   }
+  /* Hover effect for all cards */
+  .company-page .card:hover {
+    border: 1px solid #22c55e !important;
+    box-shadow: 0 1px 12px rgba(34, 197, 94, 0.2) !important;
+    transition: all 0.3s ease !important;
+  }
+
+
+
 </style>
 
 </head>
@@ -633,16 +1037,22 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
  </nav>
 
 
- <!-- ===== MAIN CONTENT CONTAINER ===== -->
- <div class="container">
-   <h1 class="page-title">Company Name</h1>
-
+<!-- ===== MAIN CONTENT CONTAINER ===== -->
+<div class="container">
+  <div style="display: flex; align-items: center; margin-bottom: 20px; max-width: 1400px; margin-left: auto; margin-right: auto;">
+    <div style="flex: 1;"></div>
+    <h1 class="page-title" style="margin: 0; white-space: nowrap; text-align: center;">Company Name</h1>
+    <div style="flex: 1; display: flex; justify-content: flex-end;">
+      <button class="btn" onclick="openNetworkModal()" style="margin: 0 35px 0 0; padding: 8px 16px; font-size: 13px; white-space: nowrap;">
+        View Supply Chain Network
+      </button>
+    </div>
+  </div>
 
    <div class="dashboard-grid">
      <!-- ===== LEFT COLUMN: COMPANY INFORMATION ===== -->
      <div class="card">
-       <h2 class="card-title">Company Information</h2>
-
+       <div class="card-title-wrapper"> <h2 class="card-title">Company Information</h2> <button class="export-btn" onclick="exportData('company_info')" data-tooltip="Export CSV"> 📥  </button> </div>
 
        <div class="form-row">
          <div class="form-group">
@@ -753,8 +1163,12 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
 
      <!-- ===== MIDDLE COLUMN: TRANSACTIONS ===== -->
      <div class="card">
-       <h2 class="card-title">Transactions</h2>
-
+       <div class="card-title-wrapper">
+         <h2 class="card-title">Transactions</h2>
+         <button class="export-btn" onclick="exportData('transactions')" data-tooltip="Export CSV">
+           📥
+         </button>
+       </div>
 
        <div class="date-inputs" style="margin-bottom: 15px;">
          <input type="date" id="transaction-start-date" style="margin-right: 8px;">
@@ -795,7 +1209,8 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
        
        <!-- KPI CARD (NO SCROLL) -->
        <div class="card kpi-card">
-         <h2 class="card-title">Key Performance Indicators</h2>
+        <div class="card-title-wrapper"> <h2 class="card-title">Key Performance Indicators</h2> <button class="export-btn" onclick="exportData('kpi')" data-tooltip="Export CSV" > 📥  </button> </div>
+
 
          <div class="date-inputs" style="margin-bottom: 15px;">
            <input type="date" id="kpi-start-date" style="margin-right: 8px;">
@@ -826,7 +1241,13 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
 
        <!-- DISRUPTION EVENTS CARD (SCROLLABLE) -->
        <div class="card disruption-card">
-         <h2 class="card-title">Disruption Events</h2>
+         <div class="card-title-wrapper">
+           <h2 class="card-title">Disruption Events</h2>
+           <button class="export-btn" onclick="exportDisruptionsPDF()" data-tooltip="Export as PDF">
+             📥
+           </button>
+         </div>
+
          <div class="kpi-metric">
            <div class="kpi-label">Recent Events (All Time)</div>
            <div id="event-list" style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
@@ -865,8 +1286,27 @@ $prod = mysqli_fetch_assoc(mysqli_query($conn, "SELECT GROUP_CONCAT(DISTINCT p.P
        </div>
    </div>
 </div>
-</div>
 
+<!-- Supply Chain Network Modal -->
+<div id="network-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 3000; justify-content: center; align-items: center;">
+   <div style="background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 1200px; height: 80vh; display: flex; flex-direction: column;">
+       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+           <h2 style="margin: 0; color: #1f2937;">Supply Chain Network</h2>
+           <button onclick="closeNetworkModal()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">Close</button>
+       </div>
+       
+       <div id="network-stats" style="margin-bottom: 10px; padding: 10px; background: #f3f4f6; border-radius: 6px; font-size: 13px;">
+           Loading network data...
+       </div>
+       
+       <div id="supply-chain-network" style="flex: 1; border: 2px solid #e5e7eb; border-radius: 8px; background: #fafbfc; min-height: 500px; width: 100%;"></div>
+       
+       <div style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
+            🟢 Current Company | 🔵 Direct Suppliers | 🟦 Suppliers' Suppliers | 🟠 Direct Customers | 🟡 Customers' Customers
+       </div>
+   </div>
+</div>
+</div>
 
  <!-- ===== JAVASCRIPT CODE ===== -->
  <script>
@@ -1663,8 +2103,194 @@ window.addEventListener('DOMContentLoaded', function() {
     xhttp.send();
 });
 
+// Export data to CSV
+function exportData(type) {
+    if (!currentCompanyId) {
+        alert("Please select a company first.");
+        return;
+    }
+    
+    var url = "company.php?action=export_csv&type=" + type + "&company=" + currentCompanyId;
+    
+    // Add date filters for transactions and KPI
+    if (type === 'transactions') {
+        var startDate = document.getElementById("transaction-start-date").value;
+        var endDate = document.getElementById("transaction-end-date").value;
+        if (startDate && endDate) {
+            url += "&start_date=" + startDate + "&end_date=" + endDate;
+        }
+    } else if (type === 'kpi') {
+        var startDate = document.getElementById("kpi-start-date").value;
+        var endDate = document.getElementById("kpi-end-date").value;
+        if (startDate && endDate) {
+            url += "&start_date=" + startDate + "&end_date=" + endDate;
+        }
+    }
+    
+    // Trigger download
+    window.location.href = url;
+}
 
+// Export Disruptions to PDF (via Print)
+function exportDisruptionsPDF() {
+    if (!currentCompanyId) {
+        alert("Please select a company first.");
+        return;
+    }
+    
+    // Get company name
+    var companyName = document.querySelector(".page-title").textContent;
+    
+    // Get all events
+    var eventList = document.getElementById("event-list");
+    var events = eventList.querySelectorAll('.event-list-item');
+    
+    if (events.length === 0) {
+        alert("No disruption events to export.");
+        return;
+    }
+    
+    // Build print-friendly HTML
+    var printContent = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+    printContent += '<title>Disruption Events - ' + companyName + '</title>';
+    printContent += '<style>';
+    printContent += 'body { font-family: Arial, sans-serif; padding: 40px; }';
+    printContent += 'h1 { color: #1f2937; border-bottom: 3px solid #22c55e; padding-bottom: 15px; }';
+    printContent += '.meta { color: #666; margin-bottom: 30px; }';
+    printContent += '.event { margin: 20px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; page-break-inside: avoid; }';
+    printContent += '.event strong { display: block; margin-bottom: 8px; font-size: 16px; }';
+    printContent += '</style></head><body>';
+    printContent += '<h1>Disruption Events - ' + companyName + '</h1>';
+    printContent += '<div class="meta">Generated: ' + new Date().toLocaleString() + '</div>';
+    
+    events.forEach(function(event) {
+        printContent += '<div class="event">' + event.innerHTML + '</div>';
+    });
+    
+    printContent += '</body></html>';
+    
+    // Open print window
+    var printWindow = window.open('', '_blank', 'width=800,height=600');
+    printWindow.document.open();
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Trigger print after content loads
+    printWindow.onload = function() {
+        printWindow.focus();
+        printWindow.print();
+    };
+}
+
+// ============================================================================
+// SUPPLY CHAIN NETWORK MODAL
+// ============================================================================
+
+var networkInstance = null;
+
+function openNetworkModal() {
+    if (!currentCompanyId) {
+        alert("Please select a company first.");
+        return;
+    }
+    
+    document.getElementById("network-modal").style.display = "flex";
+    loadSupplyChainNetwork(currentCompanyId);
+}
+
+function closeNetworkModal() {
+    document.getElementById("network-modal").style.display = "none";
+    if (networkInstance) {
+        networkInstance.destroy();
+        networkInstance = null;
+    }
+}
+
+function loadSupplyChainNetwork(companyId) {
+    fetch(`company.php?action=supply_chain_network&company=${companyId}`)
+        .then(response => response.text())  // ← Changed to .text()
+        .then(text => {
+            console.log('RAW RESPONSE:', text);  // ← Shows what server sent
+            const data = JSON.parse(text);
+            displaySupplyChainNetwork(data);
+            document.getElementById('network-stats').innerHTML = 
+                `<strong>${data.stats.suppliers}</strong> Suppliers (Upstream) • ` +
+                `<strong>${data.stats.customers}</strong> Customers (Downstream) • ` +
+                `<strong>${data.nodes.length}</strong> Total Companies`;
+        })
+        .catch(error => {
+            console.error('Error loading network:', error);
+            document.getElementById('network-stats').innerHTML = 'Error loading network data';
+        });
+}
+
+function displaySupplyChainNetwork(data) {
+    const container = document.getElementById('supply-chain-network');
+    
+    const networkData = {
+        nodes: new vis.DataSet(data.nodes),
+        edges: new vis.DataSet(data.edges)
+    };
+    
+    const options = {
+        nodes: {
+            font: { size: 14, color: '#333' },
+            borderWidth: 2,
+            shadow: true
+        },
+        edges: {
+            smooth: { enabled: true, type: 'continuous' },
+            arrows: { to: { enabled: true, scaleFactor: 0.8 } }
+        },
+        physics: {
+            enabled: true,
+            stabilization: { iterations: 100 },
+            barnesHut: {
+                gravitationalConstant: -3000,
+                centralGravity: 0.3,
+                springLength: 150
+            }
+        },
+        interaction: {
+            hover: true,
+            zoomView: true,
+            dragView: true,
+            navigationButtons: true
+        }
+    };
+    
+    if (networkInstance) {
+        networkInstance.destroy();
+    }
+    
+    networkInstance = new vis.Network(container, networkData, options);
+    
+    networkInstance.on('click', function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const node = data.nodes.find(n => n.id === nodeId);
+            if (node && nodeId != currentCompanyId) {
+                if (confirm(`Load ${node.label}?`)) {
+                    closeNetworkModal();
+                    loadCompanyInfo(nodeId);
+                    searchInput.value = node.label;
+                }
+            }
+        }
+    });
+    
+    networkInstance.on('stabilizationIterationsDone', function() {
+        networkInstance.setOptions({ physics: false });
+    });
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('network-modal');
+    if (e.target === modal) {
+        closeNetworkModal();
+    }
+});
 </script>
 </body>
 </html>
-

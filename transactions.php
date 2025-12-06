@@ -712,12 +712,16 @@ if (isset($_GET['action'])) {
     <h1 class="page-title">Transaction Analysis Dashboard</h1>
 
     <!-- ALL TRANSACTIONS - Fixed height with scrolling -->
-    <div class="card" style="padding: 15px; margin-bottom: 15px; height: 180px;">
+    <div class="card" id="all-transactions-card" 
+     style="padding: 15px; margin-bottom: 15px; height: 200px;">
 
-        <h3 style="font-size: 14px; font-weight: 600;
-                   margin-bottom: 10px; color: #333;">
-            All Transactions (Detailed View)
-        </h3>
+    <button class="zoom-btn" type="button">+</button>
+
+    <h3 style="font-size: 14px; font-weight: 600;
+               margin-bottom: 10px; color: #333;">
+        All Transactions (Detailed View)
+    </h3>
+    
 
         <!-- Div for dynamic content population - innerHTML usage from JS lab problem 9 -->
         <div id="data-all-transactions"
@@ -730,7 +734,7 @@ if (isset($_GET['action'])) {
     <!-- 5 DATA BOXES - CSS Grid layout -->
     <!-- Grid system - from HTML lab (html_lab_sols1.pdf problem 23) -->
     <div class="card"
-        style="padding: 12px; margin-bottom: 15px; height: 180px; overflow: visible;">
+        style="padding: 12px; margin-bottom: 15px; height: 210px; overflow: visible;">
 
         <div style="display: grid;
                     grid-template-columns: repeat(5, 1fr);
@@ -745,7 +749,7 @@ if (isset($_GET['action'])) {
                 </h3>
                 <!-- Independent scrolling containers - CSS overflow property -->
                 <div id="data-shipment-volume"
-                    style="font-size: 10px; height: 140px;
+                    style="font-size: 10px; height: 160px;
                            overflow-y: auto; overflow-x: hidden;">
                     <p style="color: #999;">No data</p>
                 </div>
@@ -757,7 +761,7 @@ if (isset($_GET['action'])) {
                     On-Time Delivery Rate
                 </h3>
                 <div id="data-delivery-rate"
-                    style="font-size: 10px; height: 140px;
+                    style="font-size: 10px; height: 160px;
                            overflow-y: auto; overflow-x: hidden;">
                     <p style="color: #999;">No data</p>
                 </div>
@@ -769,7 +773,7 @@ if (isset($_GET['action'])) {
                     Shipment Status
                 </h3>
                 <div id="data-status"
-                    style="font-size: 10px; height: 140px;
+                    style="font-size: 10px; height: 160px;
                            overflow-y: auto; overflow-x: hidden;">
                     <p style="color: #999;">No data</p>
                 </div>
@@ -781,7 +785,7 @@ if (isset($_GET['action'])) {
                     Products Handled
                 </h3>
                 <div id="data-products"
-                    style="font-size: 10px; height: 140px;
+                    style="font-size: 10px; height: 160px;
                            overflow-y: auto; overflow-x: hidden;">
                     <p style="color: #999;">No data</p>
                 </div>
@@ -793,7 +797,7 @@ if (isset($_GET['action'])) {
                     Disruption Exposure
                 </h3>
                 <div id="data-disruption-exposure"
-                    style="font-size: 10px; height: 140px;
+                    style="font-size: 10px; height: 160px;
                            overflow-y: auto; overflow-x: hidden;">
 
                     <p style="color: #999; font-size: 10px;">
@@ -816,7 +820,7 @@ if (isset($_GET['action'])) {
                 grid-template-columns: 1fr 1fr 1fr 1fr;
                 gap: 12px; margin-top: 15px;">
 
-        <div class="card" style="padding: 12px; height: 250px;">
+        <div class="card" style="padding: 12px; height: 280px;">
             <button class="zoom-btn" type="button">+</button>
             <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">
                 Distributors By Volume
@@ -827,7 +831,7 @@ if (isset($_GET['action'])) {
         </div>
 
 
-        <div class="card" style="padding: 12px; height: 250px;">
+        <div class="card" style="padding: 12px; height: 280px;">
             <button class="zoom-btn" type="button">+</button>
             <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">
                 On-Time Delivery Rates
@@ -837,7 +841,7 @@ if (isset($_GET['action'])) {
             </div>
         </div>
 
-        <div class="card" style="padding: 12px; height: 250px;">
+        <div class="card" style="padding: 12px; height: 280px;">
             <button class="zoom-btn" type="button">+</button>
             <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">
                 Shipment Status Distribution
@@ -847,7 +851,7 @@ if (isset($_GET['action'])) {
             </div>
         </div>
 
-        <div class="card" style="padding: 12px; height: 250px;">
+        <div class="card" style="padding: 12px; height: 280px;">
             <button class="zoom-btn" type="button">+</button>
             <h3 class="card-title" style="font-size: 12px; margin-bottom: 6px;">
                 Products By Volume
@@ -1766,12 +1770,71 @@ Plotly.newPlot('plot-4', [trace4], layout4, {
         }
     });
 }
-    // =====================================================================
-    // CARD ZOOM FOR TRANSACTIONS PLOTS
-    // Uses .card, .zoom-btn, #box-overlay, .card.expanded styles from CSS
-    // =====================================================================
+// =====================================================================
+// CARD ZOOM FOR TRANSACTIONS PLOTS
+// Uses .card, .zoom-btn, #box-overlay, .card.expanded styles from CSS
+// =====================================================================
 
-    document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ====== SET DEFAULT DATE FILTERS TO YTD ON LOAD ======
+    (function setYTDDefaults() {
+        var startInput = document.getElementById("transaction-start-date");
+        var endInput = document.getElementById("transaction-end-date");
+        if (!startInput || !endInput) return;
+
+        var today = new Date();
+        var yearStart = new Date(2022, 0, 1);
+
+        function fmt(d) {
+            return d.toISOString().slice(0, 10);
+        }
+
+        startInput.value = fmt(yearStart);
+        endInput.value = fmt(today);
+
+        window._ytdStart = fmt(yearStart);
+        window._ytdEnd = fmt(today);
+    })();
+
+    // ✅ AUTO-LOAD ABBOTT-MUNOZ IN COMPANY (LEAVING) ON PAGE LOAD
+    (function autoLoadAbbottMunoz() {
+        var xhttp = new XMLHttpRequest();
+        xhttp.onload = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                try {
+                    var data = JSON.parse(this.responseText);
+                    if (data && data.length > 0) {
+                        // Find Abbott-Munoz in results
+                        var abbottMunoz = data.find(function(company) {
+                            return company.CompanyName === 'Abbott-Munoz';
+                        });
+                        
+                        if (abbottMunoz) {
+                            // Set the source company search box
+                            sourceCompanyInput.value = 'Abbott-Munoz';
+                            // Store the company ID
+                            currentSourceCompanyId = abbottMunoz.CompanyID;
+                            
+                            console.log('✅ Abbott-Munoz auto-loaded:', abbottMunoz.CompanyID);
+                            
+                            // Optional: Auto-load data since dates are already set
+                            var startDate = document.getElementById("transaction-start-date").value;
+                            var endDate = document.getElementById("transaction-end-date").value;
+                            if (startDate && endDate) {
+                                loadTransactionData();
+                            }
+                        }
+                    }
+                } catch(e) {
+                    console.error('Error auto-loading Abbott-Munoz:', e);
+                }
+            }
+        };
+        xhttp.open("GET", "transactions.php?action=company_search&query=Abbott-Munoz", true);
+        xhttp.send();
+    })();
+
     const overlay = document.getElementById('box-overlay');
     if (!overlay) {
         console.error('box-overlay not found - zoom will not work');
@@ -1787,8 +1850,24 @@ Plotly.newPlot('plot-4', [trace4], layout4, {
 
             const isExpanded = card.classList.toggle('expanded');
 
-            // Toggle + / − icon
+            // Toggle + / - icon
             this.textContent = isExpanded ? '-' : '+';
+
+            // ===== SPECIAL LOGIC ONLY for All Transactions =====
+            if (card.id === "all-transactions-card") {
+                const container = document.getElementById("data-all-transactions");
+
+                if (isExpanded) {
+                    // Let the content dynamically expand to fill the entire fullscreen modal
+                    container.style.height = (window.innerHeight * 0.90 - 120) + "px";
+                    container.style.overflowY = "auto";
+                } else {
+                    // Restore original (non-expanded) size
+                    container.style.height = "280px";
+                    container.style.overflowY = "auto";
+                }
+            }
+            // ====================================================
 
             // Show / hide overlay
             if (isExpanded) {
@@ -1797,7 +1876,7 @@ Plotly.newPlot('plot-4', [trace4], layout4, {
                 overlay.classList.remove('show');
             }
 
-            // ✅ resize ALL plots after the animation
+            // Resize ALL plots after animation
             setTimeout(resizeAllPlots, 250);
         });
     });
@@ -1815,19 +1894,9 @@ Plotly.newPlot('plot-4', [trace4], layout4, {
         // ✅ also resize ALL plots when closing via overlay
         setTimeout(resizeAllPlots, 250);
     });
-});
 
-        // Clicking the overlay collapses any expanded card
-        overlay.addEventListener('click', function () {
-            const expandedCard = document.querySelector('.card.expanded');
-            if (!expandedCard) return;
+}); // END OF DOMContentLoaded
 
-            expandedCard.classList.remove('expanded');
-            const btn = expandedCard.querySelector('.zoom-btn');
-            if (btn) btn.textContent = '+';
-            overlay.classList.remove('show');
-        });
 </script>
-
 </body>
 </html>

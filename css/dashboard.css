@@ -15,9 +15,17 @@ body {
 }
 
 body.company-page .card:first-child {
-    background-color: #ffffff;  /* Match other cards */
-    border: 1px solid #e0e0e0;  /* Match other cards */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);  /* Match other cards */
+    background-color: #ffffff; /* Match other cards */
+    border: 1px solid #e0e0e0; /* Match other cards */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06); /* Match other cards */
+}
+
+/* Default card height for company page */
+body.company-page .card {
+    padding: 16px 18px;
+    min-height: 550px;
+    max-height: 750px;
+    overflow-y: auto;
 }
 
 /* ------------------------------------------------------------------ */
@@ -58,7 +66,7 @@ nav .nav-links a {
     transition: all 0.15s ease;
 }
 
-/* “Active” page look – highlight current tab if you add .active in PHP */
+/* “Active” page look */
 nav .nav-links a.active {
     background-color: #c2fad7;
     box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15);
@@ -91,25 +99,25 @@ nav .nav-links button {
 
 /* Logout button with image */
 nav .nav-links button.logout-btn {
-    padding: 4px;  /* Less padding for image */
-    width: 32px;   /* Fixed width */
-    height: 32px;  /* Fixed height */
-    border-radius: 6px;  /* Slightly less rounded */
+    padding: 4px;      /* Less padding for image */
+    width: 32px;       /* Fixed width */
+    height: 32px;      /* Fixed height */
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 nav .nav-links button.logout-btn img {
-    width: 20px;   /* Image size */
-    height: 20px;  /* Image size */
+    width: 20px;
+    height: 20px;
     display: block;
-    filter: brightness(0) invert(1);  /* Makes image white */
+    filter: brightness(0) invert(1); /* Makes image white */
 }
 
 nav .nav-links button.logout-btn:hover img {
-    filter: brightness(0) invert(1);  /* Keeps it white on hover */
-    transform: scale(1.1);  /* Slightly bigger on hover */
+    filter: brightness(0) invert(1);
+    transform: scale(1.1);
 }
 
 nav .nav-links button:hover {
@@ -201,6 +209,20 @@ nav .btn {
     border-color: #c5cad3 !important;
 }
 
+/* Layout buttons in nav bar */
+nav .layout-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+}
+
 /* ------------------------------------------------------------------ */
 /* SEARCH BOXES                                                       */
 /* ------------------------------------------------------------------ */
@@ -267,7 +289,7 @@ nav .btn {
 /* ------------------------------------------------------------------ */
 
 .container {
-    padding: 16px 30px 30px 30px;
+    padding: 16px 30px 1px 30px;
     max-width: 1600px;
     margin: 0 auto;
 }
@@ -278,6 +300,18 @@ nav .btn {
     font-weight: 600;
     margin-bottom: 20px;
     color: #333;
+}
+
+/* Title + header button row (Disruptions) */
+.page-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.page-header-row .page-title {
+    margin-bottom: 0;
 }
 
 .dashboard-grid {
@@ -332,7 +366,6 @@ body.disruptions-page .card {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10);
     border-color: #4CAF50;
 }
-
 
 /* Card title (Disruptions) */
 .card-title {
@@ -525,7 +558,7 @@ body.disruptions-page .chart-container {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: 200px;              /* normal dashboard height */
+    height: 200px; /* normal dashboard height */
     overflow: hidden;
 }
 
@@ -542,23 +575,15 @@ body.disruptions-page .chart-container {
     padding: 0 !important;
 }
 
-/* Base graph box */
-.graph-container {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    height: 200px;      /* normal dashboard height */
-    overflow: hidden;
-}
-
 /* When the card is expanded, let the graph area grow */
-.card.expanded .graph-container {
-    height: calc(100% - 70px);   /* card height minus header/title */
+.card.expanded .graph-container,
+.info-box.expanded .graph-container {
+    height: calc(100% - 60px); /* header + padding */
 }
 
 /* When a card is expanded, let the transaction charts fill it too */
 .card.expanded .chart-wrapper {
-    height: calc(100% - 70px) !important;  /* same offset as graph-container */
+    height: calc(100% - 70px) !important;
     max-height: none !important;
 }
 
@@ -621,6 +646,7 @@ body.disruptions-page .chart-container {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -634,15 +660,15 @@ body.disruptions-page .chart-container {
 .page-header {
     text-align: center;
     padding: 10px 0;
-    background: #ffffff;  /* Clean white instead of gray */
+    background: #ffffff;
     margin: 0;
-    border-bottom: 1px solid #e5e7eb;  /* Subtle border */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);  /* Softer shadow */
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .page-header h2 {
     margin: 0;
-    color: #1f2937;  /* Darker, cleaner text */
+    color: #1f2937;
     font-size: 20px;
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -651,12 +677,12 @@ body.disruptions-page .chart-container {
 .info-grid {
     display: grid;
     grid-template-columns: repeat(18, 1fr);
-    grid-template-rows: 250px 220px 200px;
+    grid-template-rows: 260px 240px 230px;
     gap: 3px;
     padding: 10px;
     max-width: 1900px;
     margin: 0 auto;
-    background: #f9fafb;  /* Very subtle background */
+    background: #f9fafb;
 }
 
 /* Animation staggering for info-boxes */
@@ -674,20 +700,18 @@ body.disruptions-page .chart-container {
 .info-box:nth-child(12) { animation-delay: 0.6s; }
 
 /* Grid positions */
-.info-box:nth-child(1)  { grid-column: 1 / 5;  grid-row: 1; }
-.info-box:nth-child(2)  { grid-column: 5 / 12; grid-row: 1; }
-.info-box:nth-child(4)  { grid-column: 12 / 19; grid-row: 1; }
-
-.info-box:nth-child(5)  { grid-column: 1 / 6;  grid-row: 2; }
-.info-box:nth-child(7)  { grid-column: 6 / 10; grid-row: 2; }
-.info-box:nth-child(8)  { grid-column: 10 / 15; grid-row: 2; }
-.info-box:nth-child(10) { grid-column: 15 / 19; grid-row: 2; }
-
-.info-box:nth-child(3)  { grid-column: 1 / 3;  grid-row: 3; }
-.info-box:nth-child(6)  { grid-column: 3 / 6;  grid-row: 3; }
-.info-box:nth-child(9)  { grid-column: 6 / 8;  grid-row: 3; }
-.info-box:nth-child(11) { grid-column: 8 / 14; grid-row: 3; }
-.info-box:nth-child(12) { grid-column: 14 / 19; grid-row: 3; }
+.info-box:nth-child(1) { grid-column: 1 / 5;  grid-row: 1; }
+.info-box:nth-child(2) { grid-column: 5 / 12; grid-row: 1; }
+.info-box:nth-child(4) { grid-column: 12 / 19; grid-row: 1; }
+.info-box:nth-child(5) { grid-column: 1 / 6;  grid-row: 2; }
+.info-box:nth-child(7) { grid-column: 6 / 10; grid-row: 2; }
+.info-box:nth-child(8) { grid-column: 10 / 15; grid-row: 2; }
+.info-box:nth-child(10){ grid-column: 15 / 19; grid-row: 2; }
+.info-box:nth-child(3) { grid-column: 1 / 3;  grid-row: 3; }
+.info-box:nth-child(6) { grid-column: 3 / 6;  grid-row: 3; }
+.info-box:nth-child(9) { grid-column: 6 / 8;  grid-row: 3; }
+.info-box:nth-child(11){ grid-column: 8 / 14; grid-row: 3; }
+.info-box:nth-child(12){ grid-column: 14 / 19;grid-row: 3; }
 
 /* Filters, search, lists within info-boxes */
 .filter-row {
@@ -701,7 +725,7 @@ body.disruptions-page .chart-container {
 .filter-label {
     font-size: 9px;
     font-weight: 600;
-    color: #6b7280;  /* Cleaner gray */
+    color: #6b7280;
     min-width: 55px;
     white-space: nowrap;
 }
@@ -709,7 +733,7 @@ body.disruptions-page .chart-container {
 .filter-select {
     flex: 1;
     padding: 3px 5px;
-    border: 1px solid #d1d5db;  /* Cleaner border */
+    border: 1px solid #d1d5db;
     border-radius: 3px;
     font-size: 9px;
     background: white;
@@ -723,7 +747,7 @@ body.disruptions-page .chart-container {
 
 .filter-select:focus {
     outline: none;
-    border-color: #10b981;  /* Clean green */
+    border-color: #10b981;
     box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
 }
 
@@ -813,7 +837,7 @@ body.disruptions-page .chart-container {
 
 .selected-company {
     display: inline-block;
-    background: #10b981;  /* Solid clean green */
+    background: #10b981;
     color: white;
     padding: 4px 10px;
     border-radius: 12px;
@@ -978,23 +1002,20 @@ body.disruptions-page .chart-container {
     position: fixed !important;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);  /* always centered */
-    width: 90vw !important;             /* almost full screen */
+    transform: translate(-50%, -50%);
+    width: 90vw !important;
     height: 80vh !important;
     max-width: 90vw !important;
     max-height: 80vh !important;
-
     z-index: 1001;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     border: 2px solid #4CAF50;
     background: #fff;
-
     padding: 18px 20px 20px 20px;
     border-radius: 10px;
     display: flex;
     flex-direction: column;
 }
-
 
 /* Expanded list & chart area behavior (primarily for Senior) */
 .info-box.expanded .company-list {
@@ -1051,17 +1072,6 @@ body.disruptions-page .chart-container {
     }
 }
 
-
-/* FOR COMPANY PHP */
-
-/* Default card height for company page */
-body.company-page .card {
-    padding: 16px 18px;
-    min-height: 550px;
-    max-height: 750px;
-    overflow-y: auto;
-}
-
 /* ------------------------------------------------------------------ */
 /* COMPANY PAGE SPECIFIC STYLES                                       */
 /* ------------------------------------------------------------------ */
@@ -1070,16 +1080,16 @@ body.company-page .card {
 .card:first-child input,
 .card:first-child select,
 .card:first-child textarea {
-    font-family: 'Arial', sans-serif;  /* Change this to any font you want */
-    font-size: 13px;  /* Adjust size */
-    color: #333;  /* Text color */
+    font-family: 'Arial', sans-serif;
+    font-size: 13px;
+    color: #333;
 }
 
 /* Make textareas NOT resizable and set fixed height */
 .card:first-child textarea {
-    resize: none;  /* Disable resizing */
-    height: 60px;  /* Fixed height */
-    overflow-y: auto;  /* Add scrollbar if text is too long */
+    resize: none;
+    height: 60px;
+    overflow-y: auto;
 }
 
 /* Optional: Style the labels */
@@ -1117,7 +1127,7 @@ body.company-page .card {
 }
 
 /* ------------------------------------------------------------------ */
-/* DRAG-AND-DROP CUSTOMIZATION (NEW - DO NOT MODIFY EXISTING)         */
+/* DRAG-AND-DROP CUSTOMIZATION + SELECTION                            */
 /* ------------------------------------------------------------------ */
 
 .info-box.sortable-ghost {
@@ -1126,7 +1136,7 @@ body.company-page .card {
 }
 
 .info-box.sortable-drag {
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     transform: rotate(2deg);
 }
 
@@ -1161,12 +1171,12 @@ body.company-page .card {
 }
 
 .layout-btn.reset {
-    background-color: #ff9800;
+    background-color: #2196F3;
     color: white;
 }
 
 .layout-btn.reset:hover {
-    background-color: #f57c00;
+    background-color: #1976D2;
 }
 
 .layout-btn.customize.active {
@@ -1177,6 +1187,7 @@ body.company-page .card {
     background-color: #388E3C;
 }
 
+/* Customize mode (drag layout) */
 .customize-mode-active .info-box {
     border: 2px dashed #2196F3 !important;
 }
@@ -1193,40 +1204,61 @@ body.company-page .card {
     z-index: 10;
 }
 
-/* Layout buttons in nav bar */
-nav .layout-btn {
-    padding: 8px 12px;
+/* Remove dashed borders when using selection mode instead */
+.customize-mode-active .info-box {
+    border: 1px solid #ddd !important;
+}
+
+.customize-mode-active .info-box::before {
+    display: none !important;
+}
+
+/* Box selection mode - make entire box clickable */
+.selection-mode-active .info-box {
+    cursor: pointer !important;
+    position: relative;
+}
+
+.selection-mode-active .info-box:hover {
+    border-color: #2196F3 !important;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+/* Hide the checkbox completely - we don't need it since whole box is clickable */
+.info-box .selection-checkbox {
+    display: none !important;
+}
+
+/* Selected state - just show green border, no checkbox */
+.info-box.selected {
+    border: 3px solid #22c55e !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4) !important;
+    background-color: #f0fdf4 !important;
+}
+
+.export-selected-btn {
+    display: none;
+    padding: 6px 12px;
+    background-color: #22c55e;
+    color: white;
     border: none;
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    /* margin-left: 1px; */
+    margin-left: 8px;
 }
 
-/* normal state */
-.graph-container {
-    position: relative;
-    width: 100%;
-    height: 200px;          /* normal dashboard size */
+.export-selected-btn:hover {
+    background-color: #16a34a;
 }
 
-/* let the graph fill the expanded card */
-.card.expanded .graph-container,
-.info-box.expanded .graph-container {
-    height: calc(100% - 60px);  /* header + padding */
+/* Show button when body has selection-active class */
+body.selection-mode-active .export-selected-btn {
+    display: inline-block;
 }
 
-/* make Plotly use all of the container space */
-.graph-container .plotly,
-.graph-container .js-plotly-plot,
-.graph-container .plot-container,
-.graph-container .svg-container {
-    width: 100% !important;
-    height: 100% !important;
+.export-selected-btn:disabled {
+    background-color: #d1d5db;
+    cursor: not-allowed;
 }
-
