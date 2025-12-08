@@ -2,8 +2,9 @@
 session_start();
 
 // ==================================================================================
-// LOCK THE PAGE - REDIRECT IF NOT LOGGED IN
+// LOCK THE PAGE - REDIRECT TO INDEX.PHP IF THERE IS NO ACTIVE SESSION
 // ==================================================================================
+//Source: https://www.php.net/manual/en/function.session-start.php
 if (!isset($_SESSION['username'])) {
 	header("Location: index.php");
 	exit();
@@ -12,6 +13,7 @@ if (!isset($_SESSION['username'])) {
 // ==================================================================================
 // API MODE CHECK
 // ==================================================================================
+//Source: Lab 8:PHP and MySQLi Integration	
 if (isset($_GET['action'])) {
 	// ==================================================================================
 	// OUTPUT BUFFERING (captures all output so we can control when it's sent to browser)
@@ -29,7 +31,7 @@ if (isset($_GET['action'])) {
 	ini_set('display_errors', 0);
 	error_reporting(0);
 
-	// Source: PHP lab materials
+	// Source: Lab 8:PHP and MySQLi Integration
 	$servername = "mydb.itap.purdue.edu";
 	$username   = "g1151928";
 	$password   = "JuK3J593";
@@ -44,14 +46,15 @@ if (isset($_GET['action'])) {
 	mysqli_set_charset($conn, "utf8mb4");
 
 	if (!$conn) {
-		ob_clean(); // Clear any output buffer
-		header('Content-Type: application/json');
-		die(json_encode(["error" => "Connection failed: " . mysqli_connect_error()]));
+		ob_clean(); // Clear output buffer
+		header('Content-Type: application/json'); // Set JSON header
+		die(json_encode(["error" => "Connection failed: " . mysqli_connect_error()])); // Send JSON error and stop script
 	}
 
 	// ============================================================================
 	// HANDLE COMPANY SEARCH REQUEST (when user types in search box)
 	// ============================================================================
+	// Source: https://www.php.net/manual/en/reserved.variables.get.php, https://www.php.net/manual/en/function.mysqli-query.php
 	if (isset($_GET['action']) && $_GET['action'] == 'company_search') {
 
 		$searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
@@ -64,28 +67,29 @@ if (isset($_GET['action'])) {
 
 		$result = mysqli_query($conn, $sql);
 
-		// Error handling for failed query, Source: https://www.php.net/manual/en/mysqli.query.php
+		// Error handling for failed query
 		if (!$result) {
-			ob_clean();
-			header('Content-Type: application/json');
-			die(json_encode(["error" => "Query failed"]));
+			ob_clean(); // Clear output buffer
+			header('Content-Type: application/json'); // Set JSON header
+			die(json_encode(["error" => "Query failed"])); // Send JSON error and stop script
 		}
 
-		$companies = [];
+		$companies = []; // Initialize empty array to hold results
 		while ($row = mysqli_fetch_assoc($result)) {
-			$companies[] = $row; // Array push shorthand - adds row to end, Source: https://www.php.net/manual/en/function.array-push.php
+			$companies[] = $row; // Append each row to the companies array, https://www.php.net/manual/en/function.array-push.php
 		}
 
-		ob_clean();
-		header('Content-Type: application/json');
-		echo json_encode($companies);
-		mysqli_close($conn);
-		exit; // Stop script execution - important to prevent extra output, Source: https://www.php.net/manual/en/function.exit.php
+		ob_clean(); // Clear output buffer
+		header('Content-Type: application/json'); // Set JSON header
+		echo json_encode($companies); // Send JSON-encoded results
+		mysqli_close($conn); // Close DB connection
+		exit; // Stop script execution, Source: https://www.php.net/manual/en/function.exit.php
 	}
 
 	// ============================================================================
 	// HANDLE REGION SEARCH REQUEST (when user types in search box)
 	// ============================================================================
+	//Sources: same as company search but for regions
 	elseif (isset($_GET['action']) && $_GET['action'] == 'region_search') {
 		$searchTerm = mysqli_real_escape_string($conn, $_GET['query']);
 
@@ -118,9 +122,10 @@ if (isset($_GET['action'])) {
 	// =====================================================================
 	// EXPORT FULL DISRUPTION DATASET (RAW ROWS FROM DATABASE)
 	// =====================================================================
+	//Source: ChatGPT
 	elseif (isset($_GET['action']) && $_GET['action'] == 'export_events') {
 
-		// Same filter reading logic as in 'disruptions'
+		// Read filters from query string
 		$company_id = isset($_GET['company'])    ? mysqli_real_escape_string($conn, $_GET['company'])    : '';
 		$region     = isset($_GET['region'])     ? mysqli_real_escape_string($conn, $_GET['region'])     : '';
 		$tier       = isset($_GET['tier'])       ? mysqli_real_escape_string($conn, $_GET['tier'])       : '';
@@ -131,24 +136,24 @@ if (isset($_GET['action'])) {
 			? mysqli_real_escape_string($conn, $_GET['end_date'])
 			: '';
 
-		$baseWhere = " WHERE 1=1";
+		$baseWhere = " WHERE 1=1"; // Initialize base WHERE clause
 		if ($company_id !== '') {
-			$baseWhere .= " AND c.CompanyID = '$company_id'";
+			$baseWhere .= " AND c.CompanyID = '$company_id'"; // Add company filter
 		}
 		if ($region !== '') {
-			$baseWhere .= " AND l.ContinentName = '$region'";
+			$baseWhere .= " AND l.ContinentName = '$region'"; // Add region filter
 		}
 		if ($tier !== '') {
-			$baseWhere .= " AND c.TierLevel = '$tier'";
+			$baseWhere .= " AND c.TierLevel = '$tier'"; // Add tier filter
 		}
 		if ($start_date !== '') {
-			$baseWhere .= " AND de.EventDate >= '$start_date'";
+			$baseWhere .= " AND de.EventDate >= '$start_date'"; // Add start date filter
 		}
 		if ($end_date !== '') {
-			$baseWhere .= " AND de.EventDate <= '$end_date'";
+			$baseWhere .= " AND de.EventDate <= '$end_date'"; // Add end date filter
 		}
 
-		// Pull “raw” disruption rows + related info
+		// Build and execute the export query
 		$sql = "
             SELECT
                 de.EventID,
@@ -182,12 +187,12 @@ if (isset($_GET['action'])) {
 			exit();
 		}
 
-		// Stream CSV
+		// Output CSV headers and data
 		ob_clean();
-		header('Content-Type: text/csv; charset=utf-8');
-		header('Content-Disposition: attachment; filename="disruptions_full_export.csv"');
+		header('Content-Type: text/csv; charset=utf-8'); // CSV file header
+		header('Content-Disposition: attachment; filename="disruptions_full_export.csv"'); // File download prompt
 
-		$out = fopen('php://output', 'w');
+		$out = fopen('php://output', 'w'); // Open output file, Source: https://www.php.net/manual/en/function.fopen.php
 
 		// Use DB column names as headers
 		$fields = mysqli_fetch_fields($result);
@@ -195,23 +200,24 @@ if (isset($_GET['action'])) {
 		foreach ($fields as $f) {
 			$headerRow[] = $f->name;
 		}
-		fputcsv($out, $headerRow);
+		fputcsv($out, $headerRow); // Write header row to CSV, Source: https://www.php.net/manual/en/function.fputcsv.php
 
-		// Data rows
+		// Write data rows to CSV
 		while ($row = mysqli_fetch_assoc($result)) {
 			fputcsv($out, $row);
 		}
 
-		fclose($out);
+		fclose($out); // Close output file, Source: https://www.php.net/manual/en/function.fclose.php
 		mysqli_close($conn);
 		exit();
 	}
 	// ============================================================================
 	// HANDLE DISRUPTION DATA REQUEST (when user selects a company or applies filters)
 	// ============================================================================
+	// Source: https://www.php.net/manual/en/reserved.variables.get.php, https://www.php.net/manual/en/function.mysqli-query.php
 	elseif (isset($_GET['action']) && $_GET['action'] == 'disruptions') {
 
-		// Define YTD filter defaults
+		// Define YTD filter defaults, Source: https://www.php.net/manual/en/function.date.php
 		$today     = date('Y-m-d');
 		$yearStart = date('Y-01-01');
 
@@ -220,7 +226,7 @@ if (isset($_GET['action'])) {
 		$region     = isset($_GET['region'])     ? mysqli_real_escape_string($conn, $_GET['region'])     : '';
 		$tier       = isset($_GET['tier'])       ? mysqli_real_escape_string($conn, $_GET['tier'])       : '';
 
-		// Default to no date filters if not provided
+		// Date filters with YTD defaults
 		$start_date = (isset($_GET['start_date']) && $_GET['start_date'] !== '')
 			? mysqli_real_escape_string($conn, $_GET['start_date'])
 			: '';
@@ -229,7 +235,7 @@ if (isset($_GET['action'])) {
 			? mysqli_real_escape_string($conn, $_GET['end_date'])
 			: '';
 
-		// 2. Build ONE base WHERE clause using consistent aliases, Source: https://www.php.net/manual/en/function.mysqli-real-escape-string.php
+		// 2. Build base WHERE clause for reuse in multiple queries, Source: https://www.php.net/manual/en/function.mysqli-real-escape-string.php
 		$baseWhere = " WHERE 1=1";
 
 		if ($company_id !== '') {
@@ -242,7 +248,7 @@ if (isset($_GET['action'])) {
 			$baseWhere .= " AND c.TierLevel = '$tier'";
 		}
 
-		// Add date filters if provided
+		// Date filters
 		if ($start_date !== '') {
 			$baseWhere .= " AND de.EventDate >= '$start_date'";
 		}
@@ -251,7 +257,7 @@ if (isset($_GET['action'])) {
 		}
 
 
-		// These variants are used where recovery date is required
+		// Additional WHERE clause for queries needing recovery date
 		$whereWithRecovery = $baseWhere . " AND de.EventRecoveryDate IS NOT NULL";
 
 		// 3. Run the queries that update the plots, Source: https://www.php.net/manual/en/function.mysqli-query.php
@@ -276,7 +282,7 @@ if (isset($_GET['action'])) {
 			exit();
 		}
 
-		// 3.2 Average Recovery Time (ART) per company (for histogram)
+		// 3.2 Average Recovery Time (ART) by company
 		$sql_companyart = "
             SELECT c.CompanyName, AVG(DATEDIFF(de.EventRecoveryDate, de.EventDate)) AS AvgRecoveryDays
             FROM DisruptionEvent de
@@ -336,7 +342,7 @@ if (isset($_GET['action'])) {
 			exit();
 		}
 
-		// 3.5 Regional Risk Concentration (RRC) – we’ll convert counts to % in PHP
+		// 3.5 Regional Risk Concentration (RRC) – converted to percentages later
 		$sql_rrc = "
             SELECT l.ContinentName, COUNT(*) AS DisruptionCount
             FROM DisruptionEvent de
@@ -378,7 +384,7 @@ if (isset($_GET['action'])) {
 			mysqli_close($conn);
 			exit();
 		}
-		// 3.7 NEW DISRUPTIONS IN LAST 7 DAYS
+		// 3.7 NEW DISRUPTIONS IN LAST 7 DAYS, INCLUDING ONGOING
 		$sql_new = "
             SELECT COUNT(*) AS NewCount
             FROM DisruptionEvent de
@@ -389,7 +395,7 @@ if (isset($_GET['action'])) {
             AND de.EventDate >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
             ";
 		$result_new = mysqli_query($conn, $sql_new);
-		$newCount = 0;
+		$newCount = 0; // Default to 0
 		if ($result_new && $row = mysqli_fetch_assoc($result_new)) {
 			$newCount = (int)$row['NewCount'];
 		}
@@ -405,7 +411,7 @@ if (isset($_GET['action'])) {
             AND de.EventRecoveryDate IS NULL
             ";
 		$result_ongoing = mysqli_query($conn, $sql_ongoing);
-		$ongoingCount = 0;
+		$ongoingCount = 0; // Default to 0
 		if ($result_ongoing && $row = mysqli_fetch_assoc($result_ongoing)) {
 			$ongoingCount = (int)$row['OngoingCount'];
 		}
@@ -417,11 +423,11 @@ if (isset($_GET['action'])) {
 			"hdr" => ["names" => [], "values" => []],
 			"td"  => ["names" => [], "values" => []],
 			"rrc" => ["names" => [], "values" => []],
-			"dsd" => ["names"  => [], "low"    => [], "medium" => [], "high"   => []],
+			"dsd" => ["names" => [], "low"    => [], "medium" => [], "high" => []],
 			"alerts" => ["new_last_week" => $newCount, "ongoing" => $ongoingCount]
 		];
 
-		// DF, Source: https://www.php.net/manual/en/function.mysqli-fetch-assoc.php
+		// DF
 		while ($row = mysqli_fetch_assoc($result_companyfrequency)) {
 			$response["df"]["names"][]  = $row["CompanyName"];
 			$response["df"]["values"][] = (float)$row["DisruptionCount"];
@@ -448,7 +454,7 @@ if (isset($_GET['action'])) {
 		// RRC – convert counts to percentages, Source: https://www.php.net/manual/en/control-structures.for.php
 		$rrcNames  = [];
 		$rrcCounts = [];
-		$totalRrc  = 0;
+		$totalRrc  = 0; // Total count for percentage calculation
 
 		while ($row = mysqli_fetch_assoc($result_rrc)) {
 			$rrcNames[]  = $row["ContinentName"];
@@ -471,7 +477,7 @@ if (isset($_GET['action'])) {
 			$response["dsd"]["high"][]   = (int)$row["HighImpact"];
 		}
 
-		// 5. Send JSON and stop script, Source: https://www.php.net/manual/en/function.json-encode.php
+		// 5. Send JSON and stop script
 		ob_clean();
 		header("Content-Type: application/json");
 		echo json_encode($response);
@@ -482,29 +488,30 @@ if (isset($_GET['action'])) {
 	// ================================================================================
 	// INVALID ACTION (anything that isn't company_search, region_search, disruptions)
 	// ================================================================================
-	// Source: https://www.php.net/manual/en/reserved.variables.get.php
+	// Source: https://www.php.net/manual/en/reserved.variables.get.php, https://www.php.net/manual/en/function.http-response-code.php, https://www.php.net/manual/en/function.json-encode.php
 	else {
-		$action = isset($_GET['action']) ? $_GET['action'] : 'none';
-		ob_clean();
-		header('Content-Type: application/json');
+		$action = isset($_GET['action']) ? $_GET['action'] : 'none'; // Get invalid action value
+		ob_clean(); // Clear output buffer
+		header('Content-Type: application/json'); // Set JSON header
 		http_response_code(400); // Bad Request
-		echo json_encode([
-			"error"           => "Invalid action",
-			"action_received" => $action,
-			"valid_actions"   => ["company_search", "region_search", "disruptions"]
-		]);
+		echo json_encode([ // Send error response
+			"error"           => "Invalid action", // Error message
+			"action_received" => $action, // Echo back received action
+			"valid_actions"   => ["company_search", "region_search", "disruptions"] // List of valid actions
+		]); // Send JSON-encoded results
 		mysqli_close($conn);
 		exit();
 	}
 } // End of API mode
 ?>
+
 <!DOCTYPE html>
 <html>
 
 <head>
 	<title>Disruption Analysis Dashboard</title>
-	<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-	<link rel="stylesheet" type="text/css" href="css/dashboard.css?v=15">
+	<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script> <!-- Plotly library -->
+	<link rel="stylesheet" type="text/css" href="css/dashboard.css?v=15"> <!-- "Dashboard" CSS -->
 </head>
 
 <body class="disruptions-page">
@@ -512,7 +519,7 @@ if (isset($_GET['action'])) {
 	<nav>
 		<div class="nav-links">
 			<a href="company.php">Company Information</a>
-			<a href="disruptions.php" class="active">Disruption Events</a>
+			<a href="disruptions.php" class="active">Disruption Events</a> <!-- class active highlights current page in nav bar -->
 			<a href="transactions.php">Transactions</a>
 			<button class="logout-btn" onclick="logout()">
 				<img src="logout.png" alt="Log Out">
@@ -528,10 +535,10 @@ if (isset($_GET['action'])) {
 			}
 		</script>
 
-		<!-- keep links left, filters right -->
+		<!-- keep page links left and filters right -->
 		<div style="flex-grow: 1;"></div>
 
-		<!-- FILTERS – same structure as Transactions, different fields -->
+		<!-- FILTERS -->
 		<div style="display: flex; align-items: center; gap: 6px;">
 
 			<!-- Dates -->
@@ -583,7 +590,7 @@ if (isset($_GET['action'])) {
 		</div>
 	</nav>
 
-	<div id="box-overlay"></div>
+	<div id="box-overlay"></div> <!-- Overlay for zoomed-in charts -->
 
 	<!-- ==================== DASHBOARD CONTENT ==================== -->
 	<div class="container">
@@ -595,7 +602,7 @@ if (isset($_GET['action'])) {
 		</div>
 
 		<!-- DISRUPTION ALERT BANNER -->
-		<div id="disruption-alert" class="alert-banner" style="display:none;"></div>
+		<div id="disruption-alert" class="alert-banner"></div>
 
 
 		<div class="dashboard-grid">
@@ -660,50 +667,50 @@ if (isset($_GET['action'])) {
 
 		// ====== SET DEFAULT DATE FILTERS TO YTD ON LOAD ======
 		(function setYTDDefaults() {
-			var startInput = document.getElementById("disruption-start-date");
-			var endInput = document.getElementById("disruption-end-date");
-			if (!startInput || !endInput) return;
+			var startInput = document.getElementById("disruption-start-date"); //Get start date input
+			var endInput = document.getElementById("disruption-end-date"); //Get end date input
+			if (!startInput || !endInput) return; //Exit if inputs not found
 
-			var today = new Date();
-			var yearStart = new Date(today.getFullYear(), 0, 1);
+			var today = new Date(); //Current date
+			var yearStart = new Date(today.getFullYear(), 0, 1); //January 1st of current year
 
 			function fmt(d) {
-				return d.toISOString().slice(0, 10);
+				return d.toISOString().slice(0, 10); //Format date as YYYY-MM-DD, Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString
 			}
 
-			startInput.value = fmt(yearStart);
-			endInput.value = fmt(today);
+			startInput.value = fmt(yearStart); //Set start date to Jan 1
+			endInput.value = fmt(today); //Set end date to today
 
 			// Store YTD values globally to reset
-			window._ytdStart = fmt(yearStart);
+			window._ytdStart = fmt(yearStart); 
 			window._ytdEnd = fmt(today);
 		})();
 
 		// ===================== STATE VARIABLES =====================
-		var currentCompanyId = null;
+		var currentCompanyId = null; 
 		var currentCompanyName = '';
 		var currentRegion = '';
 		var currentTier = '';
 		var latestDisruptionData = null;
 
 		// ===================== GET DOM ELEMENTS =====================
-		var companyInput = document.getElementById("company-search-input");
+		//Source: Lab 7: JavaScript
+		var companyInput = document.getElementById("company-search-input"); 
 		var companyResults = document.getElementById("company-search-results");
 		var regionInput = document.getElementById("region-search-input");
 		var regionResults = document.getElementById("region-search-results");
 		var tierSelect = document.getElementById("tier-filter");
 
-		console.log("Elements found:", {
-			companyInput: !!companyInput,
+		console.log("Elements found:", { 
+			companyInput: !!companyInput, 
 			companyResults: !!companyResults,
 			regionInput: !!regionInput,
 			regionResults: !!regionResults
-		});
+		}); //convert to boolean for easier reading
 
 		// ===================== AJAX HELPER FUNCTION =====================
+		//Source: Lab 8: PHP & AJAX Example
 		//Source: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest
-		//Source: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-		//Source: https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch
 		//Source: https://developer.mozilla.org/en-US/docs/Web/API/Response/json
 		//Source: https://www.w3schools.com/xml/ajax_xmlhttprequest_create.asp
 		//Source: https://www.w3schools.com/xml/ajax_xmlhttprequest_send.asp
@@ -736,54 +743,58 @@ if (isset($_GET['action'])) {
 		// Source: https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
 		function displayCompanies(data) {
 			console.log("Displaying companies:", data);
-			companyResults.innerHTML = "";
+			companyResults.innerHTML = ""; // Clear previous results
 
 			if (!data || data.error || data.length === 0) {
-				companyResults.innerHTML = '<div class="no-results">No companies found</div>';
-				companyResults.classList.add("show");
+				companyResults.innerHTML = '<div class="no-results">No companies found</div>'; // Show no results message
+				companyResults.classList.add("show"); // Show results dropdown
 				return;
 			}
 
 			for (var i = 0; i < data.length; i++) {
-				var item = document.createElement("div");
-				item.className = "search-result-item";
-				item.textContent = data[i].CompanyName;
-				item.setAttribute("data-id", data[i].CompanyID);
+				var item = document.createElement("div"); // Create result item
+				item.className = "search-result-item"; // Set CSS class
+				item.textContent = data[i].CompanyName; // Set company name
+				item.setAttribute("data-id", data[i].CompanyID); // Store company ID
 
 				item.onclick = function() {
-					currentCompanyId = this.getAttribute("data-id");
-					currentCompanyName = this.textContent;
-					companyInput.value = currentCompanyName;
-					companyResults.classList.remove("show");
-					console.log("Company selected:", currentCompanyName, currentCompanyId);
+					currentCompanyId = this.getAttribute("data-id"); // Get selected company ID
+					currentCompanyName = this.textContent; // Get selected company name
+					companyInput.value = currentCompanyName; // Update input field
+					companyResults.classList.remove("show"); // Hide results dropdown
+					console.log("Company selected:", currentCompanyName, currentCompanyId); // Log selection
 				};
 
-				companyResults.appendChild(item);
+				companyResults.appendChild(item); // Add item to results
 			}
-			companyResults.classList.add("show");
+			companyResults.classList.add("show"); // Show results dropdown
 		}
 
 		function loadAllCompanies() {
-			console.log("Loading all companies...");
-			ajaxGet("disruptions.php?action=company_search&query=", displayCompanies);
+			console.log("Loading all companies..."); // Load all companies when no search term
+			ajaxGet("disruptions.php?action=company_search&query=", displayCompanies); 
 		}
 
 		if (companyInput) {
+			// Load all companies on focus
 			companyInput.addEventListener("focus", function() {
-				console.log("Company input focused");
-				loadAllCompanies();
+				console.log("Company input focused"); 
+				loadAllCompanies(); 
 			});
 
 			companyInput.addEventListener("input", function() {
-				var searchTerm = companyInput.value.trim();
-				console.log("Company search term:", searchTerm);
+				// Get trimmed search term
+				var searchTerm = companyInput.value.trim(); 
+				console.log("Company search term:", searchTerm); 
 
 				if (searchTerm.length < 1) {
+					// If empty, load all companies
 					loadAllCompanies();
 					return;
 				}
 
 				ajaxGet(
+					// Search companies matching the term
 					"disruptions.php?action=company_search&query=" + encodeURIComponent(searchTerm),
 					displayCompanies
 				);
@@ -791,6 +802,7 @@ if (isset($_GET['action'])) {
 		}
 
 		// ===================== REGION SEARCH =====================
+		//Same as company search but for regions
 		function displayRegions(data) {
 			console.log("Displaying regions:", data);
 			regionResults.innerHTML = "";
@@ -845,6 +857,7 @@ if (isset($_GET['action'])) {
 			});
 		}
 		// ===================== CLOSE DROPDOWNS ON CLICK OUTSIDE =====================
+		// Source: https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
 		document.addEventListener("click", function(event) {
 			if (companyInput && companyResults &&
 				!event.target.closest("#company-search-input") &&
@@ -870,22 +883,23 @@ if (isset($_GET['action'])) {
 		// ===================== APPLY FILTERS (GLOBAL) =====================
 		window.applyFilters = function() {
 			console.log("Applying filters...");
-			var startDate = document.getElementById("disruption-start-date").value;
-			var endDate = document.getElementById("disruption-end-date").value;
+			var startDate = document.getElementById("disruption-start-date").value; // Get start date
+			var endDate = document.getElementById("disruption-end-date").value; // Get end date
 
-			var params = "action=disruptions";
+			var params = "action=disruptions"; 
 
-			if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId);
-			if (currentRegion) params += "&region=" + encodeURIComponent(currentRegion);
-			if (currentTier) params += "&tier=" + encodeURIComponent(currentTier);
-			if (startDate) params += "&start_date=" + encodeURIComponent(startDate);
-			if (endDate) params += "&end_date=" + encodeURIComponent(endDate);
+			if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId); // Add company filter
+			if (currentRegion) params += "&region=" + encodeURIComponent(currentRegion); // Add region filter
+			if (currentTier) params += "&tier=" + encodeURIComponent(currentTier); // Add tier filter
+			if (startDate) params += "&start_date=" + encodeURIComponent(startDate); // Add start date filter
+			if (endDate) params += "&end_date=" + encodeURIComponent(endDate); // Add end date filter
 
-			console.log("Filter params:", params);
-			ajaxGet("disruptions.php?" + params, renderDisruptionData);
+			console.log("Filter params:", params); 
+			ajaxGet("disruptions.php?" + params, renderDisruptionData); // Fetch filtered data
 		};
 
 		// ===================== CLEAR FILTERS (GLOBAL) =====================
+		//Same as applyFilters but resets all inputs and state
 		window.clearFilters = function() {
 			console.log("Clearing filters...");
 			if (companyInput) companyInput.value = "";
@@ -911,11 +925,12 @@ if (isset($_GET['action'])) {
 		};
 
 		// ===================== RENDER DISRUPTION DATA =====================
+		// Main function to render all charts based on fetched data
 		function renderDisruptionData(data) {
-			console.log("Rendering disruption data:", data);
+			console.log("Rendering disruption data:", data); // Log received data
 
 			if (!data || data.error) {
-				console.error("Bad disruption data:", data);
+				console.error("Bad disruption data:", data); 
 				alert("Error loading data: " + (data.error || "Unknown error"));
 				return;
 			}
@@ -923,31 +938,32 @@ if (isset($_GET['action'])) {
 			latestDisruptionData = data; // Store for export functions
 
 			// ===== ALERT BANNER FOR NEW / ONGOING DISRUPTIONS ===================
-			var alertBanner = document.getElementById("disruption-alert");
+			var alertBanner = document.getElementById("disruption-alert"); // Get alert banner element
 			if (alertBanner && data.alerts) {
-				var msgs = [];
+				var msgs = []; // Collect alert messages
 
 				if (data.alerts.new_last_week && data.alerts.new_last_week > 0) {
-					msgs.push(data.alerts.new_last_week + " new disruption(s) in the last 7 days.");
+					msgs.push(data.alerts.new_last_week + " new disruption(s) in the last 7 days."); // Add new disruptions message
 				}
 
 				if (data.alerts.ongoing && data.alerts.ongoing > 0) {
-					msgs.push(data.alerts.ongoing + " ongoing disruption(s) with no recovery date.");
+					msgs.push(data.alerts.ongoing + " ongoing disruption(s) with no recovery date."); // Add ongoing disruptions message
 				}
 
 				if (msgs.length > 0) {
 					// use HTML entity for warning symbol to avoid weird encoding chars
-					alertBanner.innerHTML = "&#9888; " + msgs.join(" ");
-					alertBanner.style.display = "block";
+					alertBanner.innerHTML = "&#9888; " + msgs.join(" "); // Combine messages
+					alertBanner.style.display = "block"; // Show banner
 				} else {
-					alertBanner.style.display = "none";
-					alertBanner.textContent = "";
+					alertBanner.style.display = "none"; // Hide banner
+					alertBanner.textContent = ""; // Clear text
 				}
 			}
 
 			const MAX_COMPANIES = 20; // Limit for DF, HDR, and DSD bar charts
 
 			const plotConfig = {
+				// Source: https://plotly.com/javascript/configuration-options/
 				responsive: true,
 				displayModeBar: false,
 				staticPlot: false
@@ -956,15 +972,15 @@ if (isset($_GET['action'])) {
 			// ===================== CSV EXPORT FUNCTIONS =====================
 			window.exportDF = function() {
 				if (!latestDisruptionData || !latestDisruptionData.df) {
-					alert("No DF data to export. Apply filters first.");
+					alert("No DF data to export. Apply filters first."); // Alert if no data
 					return;
 				}
 
-				const names = latestDisruptionData.df.names;
-				const values = latestDisruptionData.df.values;
+				const names = latestDisruptionData.df.names; // Get company names
+				const values = latestDisruptionData.df.values; // Get disruption counts
 
-				const rows = names.map((name, i) => [name, values[i]]);
-				downloadCSV(["Company", "Disruptions"], rows, "disruption_frequency.csv");
+				const rows = names.map((name, i) => [name, values[i]]); // Combine into rows
+				downloadCSV(["Company", "Disruptions"], rows, "disruption_frequency.csv"); // Download CSV
 			};
 			window.exportART = function() {
 				if (!latestDisruptionData || !latestDisruptionData.art) {
@@ -972,8 +988,8 @@ if (isset($_GET['action'])) {
 					return;
 				}
 
-				const values = latestDisruptionData.art.values;
-				const rows = values.map((v, i) => [i + 1, v]); // simple index + value
+				const values = latestDisruptionData.art.values; // Get average recovery times
+				const rows = values.map((v, i) => [i + 1, v]); // Create rows with record number
 
 				downloadCSV(["Record", "AvgRecoveryDays"], rows, "average_recovery_time.csv");
 			};
@@ -984,23 +1000,23 @@ if (isset($_GET['action'])) {
 					return;
 				}
 
-				const names = latestDisruptionData.hdr.names;
-				const values = latestDisruptionData.hdr.values;
+				const names = latestDisruptionData.hdr.names; // Get company names
+				const values = latestDisruptionData.hdr.values; // Get high impact rates
 
-				const rows = names.map((name, i) => [name, values[i]]);
+				const rows = names.map((name, i) => [name, values[i]]); 
 				downloadCSV(["Company", "HighImpactRatePercent"], rows, "high_impact_disruption_rate.csv");
 			};
 
 			window.exportTD = function() {
 				if (!latestDisruptionData || !latestDisruptionData.td) {
-					alert("No TD data to export. Apply filters first.");
+					alert("No TD data to export. Apply filters first."); 
 					return;
 				}
 
-				const values = latestDisruptionData.td.values;
-				const rows = values.map((v, i) => [i + 1, v]);
+				const values = latestDisruptionData.td.values; // Get total downtime values
+				const rows = values.map((v, i) => [i + 1, v]); // Create rows with record number
 
-				downloadCSV(["Record", "TotalDowntimeDays"], rows, "total_downtime.csv");
+				downloadCSV(["Record", "TotalDowntimeDays"], rows, "total_downtime.csv"); 
 			};
 
 			window.exportRRC = function() {
@@ -1009,10 +1025,10 @@ if (isset($_GET['action'])) {
 					return;
 				}
 
-				const names = latestDisruptionData.rrc.names;
-				const values = latestDisruptionData.rrc.values;
+				const names = latestDisruptionData.rrc.names; // Get region names
+				const values = latestDisruptionData.rrc.values; // Get risk percentages
 
-				const rows = names.map((name, i) => [name, values[i]]);
+				const rows = names.map((name, i) => [name, values[i]]); // Combine into rows
 				downloadCSV(["Region", "RiskPercent"], rows, "regional_risk_concentration.csv");
 			};
 
@@ -1022,16 +1038,16 @@ if (isset($_GET['action'])) {
 					return;
 				}
 
-				const names = latestDisruptionData.dsd.names;
-				const low = latestDisruptionData.dsd.low;
-				const medium = latestDisruptionData.dsd.medium;
-				const high = latestDisruptionData.dsd.high;
+				const names = latestDisruptionData.dsd.names; // Get company names
+				const low = latestDisruptionData.dsd.low; // Get low impact counts
+				const medium = latestDisruptionData.dsd.medium; // Get medium impact counts
+				const high = latestDisruptionData.dsd.high; // Get high impact counts
 
 				const rows = names.map((name, i) => [
-					name,
-					low[i] || 0,
-					medium[i] || 0,
-					high[i] || 0
+					name, // Company
+					low[i] || 0, // Low impact
+					medium[i] || 0, // Medium impact
+					high[i] || 0 // High impact
 				]);
 
 				downloadCSV(["Company", "Low", "Medium", "High"], rows, "disruption_severity_distribution.csv");
@@ -1039,12 +1055,14 @@ if (isset($_GET['action'])) {
 			// ===== DF BAR =====
 			// Source: https://plotly.com/javascript/bar-charts/
 			if (data.df && data.df.names && data.df.names.length > 0) {
-				const names = data.df.names.slice(0, MAX_COMPANIES);
-				const values = data.df.values.slice(0, MAX_COMPANIES);
+				// Limit to top N companies
+				const names = data.df.names.slice(0, MAX_COMPANIES); // Get top company names
+				const values = data.df.values.slice(0, MAX_COMPANIES); // Get top disruption counts
 
 				const dfTraces = [{
-					x: values,
-					y: names,
+					// Bar chart trace
+					x: values, // Disruption counts
+					y: names, // Company names
 					type: "bar",
 					orientation: "h",
 					marker: {
@@ -1053,9 +1071,8 @@ if (isset($_GET['action'])) {
 				}];
 
 				const dfLayout = {
-					//title: "Disruption Frequency by Company",
 					margin: {
-						t: 30,
+						t: 30, 
 						r: 20,
 						b: 80,
 						l: 160
@@ -1068,14 +1085,15 @@ if (isset($_GET['action'])) {
 					}
 				};
 
-				Plotly.newPlot("df-bar", dfTraces, dfLayout, plotConfig);
+				Plotly.newPlot("df-bar", dfTraces, dfLayout, plotConfig); // Render chart
 			} else {
-				Plotly.purge('df-bar');
+				Plotly.purge('df-bar'); // Clear chart if no data, Source: https://plotly.com/javascript/plotlyjs-events/#removing-plots
 			}
 
 			// ===== ART HISTOGRAM =====
 			// Source: https://plotly.com/javascript/histograms/
 			if (data.art && data.art.values && data.art.values.length > 0) {
+				// Histogram trace
 				const artTraces = [{
 					x: data.art.values,
 					type: "histogram",
@@ -1085,7 +1103,6 @@ if (isset($_GET['action'])) {
 				}];
 
 				const artLayout = {
-					//title: "Average Recovery Time (Days)",
 					xaxis: {
 						title: "Number of Days"
 					},
@@ -1116,7 +1133,6 @@ if (isset($_GET['action'])) {
 				}];
 
 				const hdrLayout = {
-					//title: "High Impact Disruption Rate (%)",
 					margin: {
 						t: 30,
 						r: 20,
@@ -1148,7 +1164,6 @@ if (isset($_GET['action'])) {
 				}];
 
 				const tdLayout = {
-					//title: "Total Downtime (Days)",
 					xaxis: {
 						title: "Number of Days"
 					},
@@ -1165,16 +1180,16 @@ if (isset($_GET['action'])) {
 			// ===== RRC HEATMAP =====
 			// Source: https://plotly.com/javascript/heatmaps/
 			if (data.rrc && data.rrc.names && data.rrc.names.length > 0) {
+				// Heatmap trace
 				const rrcTraces = [{
-					z: [data.rrc.values],
-					x: data.rrc.names,
-					y: ["Risk %"],
+					z: [data.rrc.values], // 2D array for heatmap
+					x: data.rrc.names, // Region names
+					y: ["Risk %"], 
 					type: "heatmap",
-					colorscale: "Reds"
+					colorscale: "Reds" 
 				}];
 
 				const rrcLayout = {
-					//title: "Regional Risk Concentration",
 					margin: {
 						t: 40,
 						r: 20,
@@ -1230,7 +1245,6 @@ if (isset($_GET['action'])) {
 
 				const dsdLayout = {
 					barmode: "stack",
-					//title: "Disruption Severity Distribution",
 					margin: {
 						t: 30,
 						r: 20,
@@ -1250,93 +1264,97 @@ if (isset($_GET['action'])) {
 				Plotly.purge('dsd-bar');
 			}
 
-			console.log("✅ All plots rendered!");
+			console.log("✅ All plots rendered!"); // Log completion
 		}
 		// ===================== CSV EXPORT HELPER FUNCTION =====================
 		function downloadCSV(headersArray, rowsArray, filename) {
-			let csv = "";
-			csv += headersArray.join(",") + "\n";
+			let csv = ""; // Initialize CSV string
+			csv += headersArray.join(",") + "\n"; // Add headers
 
 			rowsArray.forEach(function(row) {
 				// Escape double quotes and wrap each value in quotes
 				const line = row
-					.map(v => '"' + String(v).replace(/"/g, '""') + '"')
-					.join(",");
-				csv += line + "\n";
+					.map(v => '"' + String(v).replace(/"/g, '""') + '"') 
+					.join(","); // Combine values into CSV line
+				csv += line + "\n"; 
 			});
 
 			const blob = new Blob([csv], {
-				type: "text/csv;charset=utf-8;"
+				type: "text/csv;charset=utf-8;" // Create Blob for CSV data
 			});
-			const url = URL.createObjectURL(blob);
+			const url = URL.createObjectURL(blob); // Create URL for Blob
 
-			const link = document.createElement("a");
-			link.href = url;
-			link.download = filename;
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-			URL.revokeObjectURL(url);
+			const link = document.createElement("a"); // Create temporary link
+			link.href = url; // Set link href to Blob URL
+			link.download = filename; // Set download filename
+			document.body.appendChild(link); // Append link to body
+			link.click(); // Trigger download
+			document.body.removeChild(link); // Remove link from body
+			URL.revokeObjectURL(url); // Clean up URL object
 		}
 
 		window.exportFullDataset = function() {
-			var qs = buildFilterQuery('export_events');
+			var qs = buildFilterQuery('export_events'); // Build query string with current filters
 			// Trigger file download
-			window.location.href = "disruptions.php?" + qs;
+			window.location.href = "disruptions.php?" + qs; // Redirect to download URL
 		};
 
 
 		// Build a query string for the current filters + an action name
 		function buildFilterQuery(actionName) {
-			var params = "action=" + encodeURIComponent(actionName);
+			var params = "action=" + encodeURIComponent(actionName); 
 
-			if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId);
-			if (currentRegion) params += "&region=" + encodeURIComponent(currentRegion);
-			if (currentTier) params += "&tier=" + encodeURIComponent(currentTier);
+			if (currentCompanyId) params += "&company=" + encodeURIComponent(currentCompanyId); // Add company filter
+			if (currentRegion) params += "&region=" + encodeURIComponent(currentRegion); // Add region filter
+			if (currentTier) params += "&tier=" + encodeURIComponent(currentTier); // Add tier filter
 
-			var startDate = document.getElementById("disruption-start-date").value;
-			var endDate = document.getElementById("disruption-end-date").value;
+			var startDate = document.getElementById("disruption-start-date").value; // Get start date
+			var endDate = document.getElementById("disruption-end-date").value; // Get end date
 
-			if (startDate) params += "&start_date=" + encodeURIComponent(startDate);
-			if (endDate) params += "&end_date=" + encodeURIComponent(endDate);
+			if (startDate) params += "&start_date=" + encodeURIComponent(startDate); // Add start date filter
+			if (endDate) params += "&end_date=" + encodeURIComponent(endDate); // Add end date filter
 
-			return params;
+			return params; // Return query string
 		}
 
-		// ====== Card zoom (reuse pattern from Senior Manager) ======
+		// ====== CARD ZOOM (reused pattern from Senior Manager) ======
 		function setupCardZoom() {
-			const boxes = document.querySelectorAll('.card[data-box-id]');
-			const overlay = document.getElementById('box-overlay');
-			if (!overlay || boxes.length === 0) return;
+			const boxes = document.querySelectorAll('.card[data-box-id]'); // Get all cards with data-box-id
+			const overlay = document.getElementById('box-overlay'); // Get overlay element
+			if (!overlay || boxes.length === 0) return; // Exit if no overlay or cards
 
 			boxes.forEach(box => {
-				const zoomBtn = box.querySelector('.zoom-btn');
-				if (!zoomBtn) return;
+				const zoomBtn = box.querySelector('.zoom-btn'); // Get zoom button
+				if (!zoomBtn) return; // Skip if no button
 
 				zoomBtn.addEventListener('click', function(e) {
-					e.stopPropagation();
+					e.stopPropagation(); // Prevent event bubbling
 
-					const isExpanded = box.classList.contains('expanded');
+					const isExpanded = box.classList.contains('expanded'); // Check if card is expanded
 
 					// collapse any other expanded cards
 					document.querySelectorAll('.card.expanded').forEach(b => {
 						if (b !== box) {
-							b.classList.remove('expanded');
-							const otherBtn = b.querySelector('.zoom-btn');
+							b.classList.remove('expanded'); // Collapse other card
+							const otherBtn = b.querySelector('.zoom-btn'); // Get its zoom button
 							if (otherBtn) {
-								otherBtn.textContent = '+';
-								otherBtn.title = 'Expand chart';
+								otherBtn.textContent = '+'; // Reset button text
+								otherBtn.title = 'Expand chart'; // Reset button title
 							}
 						}
 					});
 
-					if (isExpanded) {
+					if (isExpanded) 
+					// currently expanded, so collapse
+					{
 						box.classList.remove('expanded');
 						overlay.classList.remove('show');
 						zoomBtn.textContent = '+';
 						zoomBtn.title = 'Expand chart';
 						resizeChartsInBox(box);
-					} else {
+					} else 
+					// currently collapsed, so expand
+					{
 						box.classList.add('expanded');
 						overlay.classList.add('show');
 						zoomBtn.textContent = '-';
@@ -1376,16 +1394,17 @@ if (isset($_GET['action'])) {
 			setupCardZoom();
 		});
 		// ===================== LOAD INITIAL DATA (YTD) =====================
-		var initialStart = window._ytdStart;
-		var initialEnd = window._ytdEnd;
+		var initialStart = window._ytdStart; // Get YTD start date
+		var initialEnd = window._ytdEnd; // Get YTD end date
 
-		var initialParams = "action=disruptions";
+		var initialParams = "action=disruptions"; 
 		if (initialStart) initialParams += "&start_date=" + encodeURIComponent(initialStart);
 		if (initialEnd) initialParams += "&end_date=" + encodeURIComponent(initialEnd);
 
 		ajaxGet("disruptions.php?" + initialParams, renderDisruptionData);
 
 		// ===================== SENIOR MANAGER TAB =====================
+		// Allow access to Senior Module if user is Senior Manager
 		fetch('role.php')
 			.then(response => response.json())
 			.then(data => {
@@ -1403,10 +1422,10 @@ if (isset($_GET['action'])) {
 				seniorLink.href = 'senior_manager.php';
 				seniorLink.textContent = 'Senior Module';
 
-				navLinks.insertBefore(seniorLink, navLinks.firstChild);
+				navLinks.insertBefore(seniorLink, navLinks.firstChild); // Insert at the start
 			})
 			.catch(err => {
-				console.error('Role check failed:', err);
+				console.error('Role check failed:', err); 
 			})
 	</script>
 
