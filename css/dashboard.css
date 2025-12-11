@@ -1,12 +1,11 @@
+/* Default settings for all elements */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* ------------------------------------------------------------------ */
-/* GLOBAL BODY                                                         */
-/* ------------------------------------------------------------------ */
+/* GLOBAL BODY */
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -15,9 +14,9 @@ body {
 }
 
 body.company-page .card:first-child {
-    background-color: #ffffff; /* Match other cards */
-    border: 1px solid #e0e0e0; /* Match other cards */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06); /* Match other cards */
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 /* Default card height for company page */
@@ -28,9 +27,7 @@ body.company-page .card {
     overflow-y: auto;
 }
 
-/* ------------------------------------------------------------------ */
-/* NAV BAR – SHARED STYLING                                           */
-/* ------------------------------------------------------------------ */
+/* NAVIGATION BAR */
 
 nav {
     background-color: #f3f5fb;
@@ -42,7 +39,7 @@ nav {
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
 }
 
-/* Keep links on the left, filters on the right */
+/* Keeps links on the left, filters on the right */
 nav .nav-links {
     display: flex;
     align-items: center;
@@ -72,14 +69,48 @@ nav .nav-links a.active {
     box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15);
 }
 
-/* Hover state with green accent */
+/* Hover with green accent */
 nav .nav-links a:hover {
     background-color: #ecfdf5;
     border-color: #22c55e;
     color: #064e3b;
 }
 
-/* Red pill log out button */
+/* Door Logout icon */
+nav .nav-links button.logout-btn {
+    padding: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+nav .nav-links button.logout-btn img {
+    width: 20px;
+    height: 20px;
+    display: block;
+    filter: brightness(0) invert(1);
+}
+
+nav .nav-links button.logout-btn:hover img {
+    filter: brightness(0) invert(1);
+    transform: scale(1.1);
+}
+
+nav .nav-links button:hover {
+    background: #ef4444;
+    box-shadow: 0 3px 6px rgba(239, 68, 68, 0.55);
+    transform: translateY(-1px);
+}
+
+nav .nav-links button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(239, 68, 68, 0.45);
+}
+
+/* Red log out button */
 nav .nav-links button {
     display: inline-flex;
     align-items: center;
@@ -99,46 +130,24 @@ nav .nav-links button {
 
 /* Logout button with image */
 nav .nav-links button.logout-btn {
-    padding: 4px;      /* Less padding for image */
-    width: 32px;       /* Fixed width */
-    height: 32px;      /* Fixed height */
+    padding: 4px;
+    /* Less padding for image */
+    width: 32px;
+    /* Fixed width */
+    height: 32px;
+    /* Fixed height */
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-nav .nav-links button.logout-btn img {
-    width: 20px;
-    height: 20px;
-    display: block;
-    filter: brightness(0) invert(1); /* Makes image white */
-}
-
-nav .nav-links button.logout-btn:hover img {
-    filter: brightness(0) invert(1);
-    transform: scale(1.1);
-}
-
-nav .nav-links button:hover {
-    background: #ef4444;
-    box-shadow: 0 3px 6px rgba(239, 68, 68, 0.55);
-    transform: translateY(-1px);
-}
-
-nav .nav-links button:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(239, 68, 68, 0.45);
-}
-
-/* Make sure default link styles don’t leak in */
 nav .nav-links a:link,
 nav .nav-links a:visited {
     color: inherit;
     text-decoration: none;
 }
 
-/* Nav form controls */
 nav input[type="date"],
 nav .search-box-two input,
 nav select {
@@ -160,7 +169,6 @@ nav select:focus {
     background-color: #f9fff9;
 }
 
-/* Buttons in nav (Apply / Clear filters) */
 nav input[type="date"],
 nav .search-box-two input,
 nav .btn {
@@ -183,7 +191,6 @@ nav .btn {
     border: none !important;
 }
 
-/* Filter container in nav */
 .nav-filter-container {
     display: flex;
     flex-direction: row;
@@ -203,13 +210,11 @@ nav .btn {
     flex-shrink: 0;
 }
 
-/* Old pill styling kept for compatibility if used anywhere */
 .nav-links a,
 .nav-links button {
     border-color: #c5cad3 !important;
 }
 
-/* Layout buttons in nav bar */
 nav .layout-btn {
     padding: 8px 12px;
     border: none;
@@ -223,9 +228,7 @@ nav .layout-btn {
     gap: 1px;
 }
 
-/* ------------------------------------------------------------------ */
-/* SEARCH BOXES                                                       */
-/* ------------------------------------------------------------------ */
+/* SEARCH BOXES & DATE INPUTS */
 
 .search-box {
     position: relative;
@@ -234,7 +237,7 @@ nav .layout-btn {
 
 .search-box-two {
     position: relative;
-    width: 150px;
+    width: 90px;
 }
 
 .search-box input,
@@ -284,9 +287,16 @@ nav .layout-btn {
     text-align: center;
 }
 
-/* ------------------------------------------------------------------ */
-/* GENERAL LAYOUT                                                     */
-/* ------------------------------------------------------------------ */
+.date-filter {
+    width: 130px; 
+    height: 34px; 
+    padding: 6px 10px; 
+    font-size: 13px; 
+    border: 1px solid #999; 
+    border-radius: 4px;
+}
+
+/* GENERAL LAYOUT */
 
 .container {
     padding: 16px 30px 1px 30px;
@@ -302,7 +312,7 @@ nav .layout-btn {
     color: #333;
 }
 
-/* Title + header button row (Disruptions) */
+/* Disruptions Header Styling */
 .page-header-row {
     display: flex;
     align-items: center;
@@ -327,9 +337,11 @@ nav .layout-btn {
     min-height: calc(100vh - 175px);
 }
 
-/* ------------------------------------------------------------------ */
-/* SHARED PANEL STYLES – .card (Disruptions) & .info-box (Senior)     */
-/* ------------------------------------------------------------------ */
+.nav-spacing {
+    flex-grow: 1;
+}
+
+/* Disruptions and Senior Module Styling */
 
 .card,
 .info-box {
@@ -345,14 +357,13 @@ nav .layout-btn {
     animation: fadeInUp 0.35s ease-out backwards;
 }
 
-/* Disruptions cards specific */
 body.disruptions-page .card {
     padding: 16px 18px;
     height: 400px;
     overflow-y: auto;
 }
 
-/* Senior info-box specific */
+/* Senior info-box */
 .info-box {
     padding: 10px;
     padding-bottom: 28px;
@@ -360,14 +371,13 @@ body.disruptions-page .card {
     overflow: hidden;
 }
 
-/* Hover effect shared */
 .card:hover,
 .info-box:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10);
     border-color: #4CAF50;
 }
 
-/* Card title (Disruptions) */
+/* Disruptions card title */
 .card-title {
     font-size: 13px;
     font-weight: 600;
@@ -380,7 +390,7 @@ body.disruptions-page .card {
     letter-spacing: 0.03em;
 }
 
-/* Info-box header (Senior) */
+/* Senior info-box header */
 .info-box h3 {
     margin: 0 0 4px 0;
     color: #333;
@@ -390,9 +400,7 @@ body.disruptions-page .card {
     padding-bottom: 3px;
 }
 
-/* ------------------------------------------------------------------ */
-/* FORMS / BUTTONS                                                    */
-/* ------------------------------------------------------------------ */
+/* FORMS / BUTTONS */
 
 .form-row {
     display: grid;
@@ -463,9 +471,7 @@ textarea {
     margin: 10px 0 15px;
 }
 
-/* ------------------------------------------------------------------ */
-/* MISC CONTENT BLOCKS                                                */
-/* ------------------------------------------------------------------ */
+/* MISC CONTENT */
 
 .transaction-section {
     margin-bottom: 15px;
@@ -525,9 +531,7 @@ textarea {
     font-weight: 600;
 }
 
-/* ------------------------------------------------------------------ */
-/* SHARED CHART CONTAINERS                                            */
-/* ------------------------------------------------------------------ */
+/* SHARED PLOTLY CONTAINERS */
 
 body.disruptions-page .graph-container,
 body.disruptions-page .chart-container {
@@ -553,16 +557,15 @@ body.disruptions-page .chart-container {
     min-height: 140px;
 }
 
-/* Normal plot containers inside cards */
 .graph-container {
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: 200px; /* normal dashboard height */
+    height: 200px;
     overflow: hidden;
 }
 
-/* Make Plotly fill its graph container in all states */
+/* Make Plotly fill graph container on maximize/minimize */
 .graph-container .plotly,
 .graph-container .js-plotly-plot,
 .graph-container .plot-container,
@@ -575,21 +578,19 @@ body.disruptions-page .chart-container {
     padding: 0 !important;
 }
 
-/* When the card is expanded, let the graph area grow */
+/* Expand plotly area in maximized state */
 .card.expanded .graph-container,
 .info-box.expanded .graph-container {
-    height: calc(100% - 60px); /* header + padding */
+    height: calc(100% - 60px);
 }
 
-/* When a card is expanded, let the transaction charts fill it too */
+/* Same as above but for transactions */
 .card.expanded .chart-wrapper {
     height: calc(100% - 70px) !important;
     max-height: none !important;
 }
 
-/* ------------------------------------------------------------------ */
-/* LIST ITEMS                                                         */
-/* ------------------------------------------------------------------ */
+/* LIST ITEMS */
 
 .event-list-item {
     font-size: 12px;
@@ -618,9 +619,7 @@ body.disruptions-page .chart-container {
     font-style: italic;
 }
 
-/* ------------------------------------------------------------------ */
-/* DISRUPTIONS ALERT BANNER                                           */
-/* ------------------------------------------------------------------ */
+/* DISRUPTIONS ALERT BANNER */
 
 .alert-banner {
     margin: 0 0 16px 0;
@@ -637,9 +636,8 @@ body.disruptions-page .chart-container {
     display: none;
 }
 
-/* ------------------------------------------------------------------ */
-/* KEYFRAMES                                                          */
-/* ------------------------------------------------------------------ */
+/* KEYFRAMES */
+/* Source: https://animate.style/ */
 
 @keyframes fadeInUp {
     from {
@@ -653,9 +651,7 @@ body.disruptions-page .chart-container {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* SENIOR MANAGER – GRID LAYOUT                                       */
-/* ------------------------------------------------------------------ */
+/* SENIOR MANAGER – GRID LAYOUT */
 
 .page-header {
     text-align: center;
@@ -686,32 +682,114 @@ body.disruptions-page .chart-container {
 }
 
 /* Animation staggering for info-boxes */
-.info-box:nth-child(1) { animation-delay: 0.05s; }
-.info-box:nth-child(2) { animation-delay: 0.1s; }
-.info-box:nth-child(3) { animation-delay: 0.15s; }
-.info-box:nth-child(4) { animation-delay: 0.2s; }
-.info-box:nth-child(5) { animation-delay: 0.25s; }
-.info-box:nth-child(6) { animation-delay: 0.3s; }
-.info-box:nth-child(7) { animation-delay: 0.35s; }
-.info-box:nth-child(8) { animation-delay: 0.4s; }
-.info-box:nth-child(9) { animation-delay: 0.45s; }
-.info-box:nth-child(10) { animation-delay: 0.5s; }
-.info-box:nth-child(11) { animation-delay: 0.55s; }
-.info-box:nth-child(12) { animation-delay: 0.6s; }
+.info-box:nth-child(1) {
+    animation-delay: 0.05s;
+}
+
+.info-box:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.info-box:nth-child(3) {
+    animation-delay: 0.15s;
+}
+
+.info-box:nth-child(4) {
+    animation-delay: 0.2s;
+}
+
+.info-box:nth-child(5) {
+    animation-delay: 0.25s;
+}
+
+.info-box:nth-child(6) {
+    animation-delay: 0.3s;
+}
+
+.info-box:nth-child(7) {
+    animation-delay: 0.35s;
+}
+
+.info-box:nth-child(8) {
+    animation-delay: 0.4s;
+}
+
+.info-box:nth-child(9) {
+    animation-delay: 0.45s;
+}
+
+.info-box:nth-child(10) {
+    animation-delay: 0.5s;
+}
+
+.info-box:nth-child(11) {
+    animation-delay: 0.55s;
+}
+
+.info-box:nth-child(12) {
+    animation-delay: 0.6s;
+}
 
 /* Grid positions */
-.info-box:nth-child(1) { grid-column: 1 / 5;  grid-row: 1; }
-.info-box:nth-child(2) { grid-column: 5 / 12; grid-row: 1; }
-.info-box:nth-child(4) { grid-column: 12 / 19; grid-row: 1; }
-.info-box:nth-child(5) { grid-column: 1 / 6;  grid-row: 2; }
-.info-box:nth-child(7) { grid-column: 6 / 10; grid-row: 2; }
-.info-box:nth-child(8) { grid-column: 10 / 15; grid-row: 2; }
-.info-box:nth-child(10){ grid-column: 15 / 19; grid-row: 2; }
-.info-box:nth-child(3) { grid-column: 1 / 3;  grid-row: 3; }
-.info-box:nth-child(6) { grid-column: 3 / 6;  grid-row: 3; }
-.info-box:nth-child(9) { grid-column: 6 / 8;  grid-row: 3; }
-.info-box:nth-child(11){ grid-column: 8 / 14; grid-row: 3; }
-.info-box:nth-child(12){ grid-column: 14 / 19;grid-row: 3; }
+.info-box:nth-child(1) {
+    grid-column: 1 / 5;
+    grid-row: 1;
+}
+
+.info-box:nth-child(2) {
+    grid-column: 5 / 12;
+    grid-row: 1;
+}
+
+.info-box:nth-child(4) {
+    grid-column: 12 / 19;
+    grid-row: 1;
+}
+
+.info-box:nth-child(5) {
+    grid-column: 1 / 6;
+    grid-row: 2;
+}
+
+.info-box:nth-child(7) {
+    grid-column: 6 / 10;
+    grid-row: 2;
+}
+
+.info-box:nth-child(8) {
+    grid-column: 10 / 15;
+    grid-row: 2;
+}
+
+.info-box:nth-child(10) {
+    grid-column: 15 / 19;
+    grid-row: 2;
+}
+
+.info-box:nth-child(3) {
+    grid-column: 1 / 3;
+    grid-row: 3;
+}
+
+.info-box:nth-child(6) {
+    grid-column: 3 / 6;
+    grid-row: 3;
+}
+
+.info-box:nth-child(9) {
+    grid-column: 6 / 8;
+    grid-row: 3;
+}
+
+.info-box:nth-child(11) {
+    grid-column: 8 / 14;
+    grid-row: 3;
+}
+
+.info-box:nth-child(12) {
+    grid-column: 14 / 19;
+    grid-row: 3;
+}
 
 /* Filters, search, lists within info-boxes */
 .filter-row {
@@ -942,9 +1020,7 @@ body.disruptions-page .chart-container {
     margin-bottom: 5px;
 }
 
-/* ------------------------------------------------------------------ */
-/* SHARED ZOOM BUTTON + OVERLAY (Senior & Disruptions)                */
-/* ------------------------------------------------------------------ */
+/* Senior & Disruptions Zoom Button Overlay */
 
 /* plus / minus button in top-right corner of panels */
 .zoom-btn {
@@ -980,7 +1056,6 @@ body.disruptions-page .chart-container {
     transform: scale(0.95);
 }
 
-/* overlay behind expanded card/info-box */
 #box-overlay {
     position: fixed;
     inset: 0;
@@ -1017,7 +1092,7 @@ body.disruptions-page .chart-container {
     flex-direction: column;
 }
 
-/* Expanded list & chart area behavior (primarily for Senior) */
+/* Senior module - expanded list & chart area behavior */
 .info-box.expanded .company-list {
     max-height: none !important;
     height: calc(100% - 100px) !important;
@@ -1044,9 +1119,7 @@ body.disruptions-page .chart-container {
     color: #da190b;
 }
 
-/* ------------------------------------------------------------------ */
-/* RESPONSIVE BREAKPOINTS                                             */
-/* ------------------------------------------------------------------ */
+/* RESPONSIVE BREAKPOINTS */
 
 @media (max-width: 1400px) {
     .info-grid {
@@ -1072,11 +1145,9 @@ body.disruptions-page .chart-container {
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* COMPANY PAGE SPECIFIC STYLES                                       */
-/* ------------------------------------------------------------------ */
+/* COMPANY PAGE SPECIFIC STYLES */
 
-/* Change font for inputs/textareas in first card */
+/* Change font for inputs in first card */
 .card:first-child input,
 .card:first-child select,
 .card:first-child textarea {
@@ -1085,14 +1156,13 @@ body.disruptions-page .chart-container {
     color: #333;
 }
 
-/* Make textareas NOT resizable and set fixed height */
+/* Make inputs not resizable and set fixed height */
 .card:first-child textarea {
     resize: none;
     height: 60px;
     overflow-y: auto;
 }
 
-/* Optional: Style the labels */
 .card:first-child label {
     font-family: 'Arial', sans-serif;
     font-size: 11px;
@@ -1120,15 +1190,12 @@ body.disruptions-page .chart-container {
     overflow: hidden !important;
 }
 
-/* Fix internal clipping */
 .chart-wrapper svg {
     width: 100% !important;
     height: 100% !important;
 }
 
-/* ------------------------------------------------------------------ */
-/* DRAG-AND-DROP CUSTOMIZATION + SELECTION                            */
-/* ------------------------------------------------------------------ */
+/* DRAG-AND-DROP CUSTOMIZATION + SELECTION */
 
 .info-box.sortable-ghost {
     opacity: 0.4;
@@ -1187,7 +1254,7 @@ body.disruptions-page .chart-container {
     background-color: #388E3C;
 }
 
-/* Customize mode (drag layout) */
+/* Customize mode */
 .customize-mode-active .info-box {
     border: 2px dashed #2196F3 !important;
 }
@@ -1204,7 +1271,7 @@ body.disruptions-page .chart-container {
     z-index: 10;
 }
 
-/* Remove dashed borders when using selection mode instead */
+/* Solid borders in selection mode */
 .customize-mode-active .info-box {
     border: 1px solid #ddd !important;
 }
@@ -1213,7 +1280,6 @@ body.disruptions-page .chart-container {
     display: none !important;
 }
 
-/* Box selection mode - make entire box clickable */
 .selection-mode-active .info-box {
     cursor: pointer !important;
     position: relative;
@@ -1224,12 +1290,10 @@ body.disruptions-page .chart-container {
     box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
 }
 
-/* Hide the checkbox completely - we don't need it since whole box is clickable */
 .info-box .selection-checkbox {
     display: none !important;
 }
 
-/* Selected state - just show green border, no checkbox */
 .info-box.selected {
     border: 3px solid #22c55e !important;
     box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4) !important;
@@ -1253,7 +1317,6 @@ body.disruptions-page .chart-container {
     background-color: #16a34a;
 }
 
-/* Show button when body has selection-active class */
 body.selection-mode-active .export-selected-btn {
     display: inline-block;
 }
@@ -1261,4 +1324,146 @@ body.selection-mode-active .export-selected-btn {
 .export-selected-btn:disabled {
     background-color: #d1d5db;
     cursor: not-allowed;
+}
+
+
+/* Three-column grid - all aligned at top */
+.company-page .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    align-items: stretch !important;
+}
+
+/* Default card styles */
+.company-page .card {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Style for card titles with export buttons */
+.company-page .card-title-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.company-page .card-title-wrapper .card-title {
+    margin: 0;
+}
+
+.company-page .export-btn {
+    padding: 6px 10px;
+    font-size: 16px;
+    background: white;
+    color: #1f2937;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+}
+
+.company-page .export-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+/* Tooltip on hover - appears BELOW button to avoid clipping */
+.company-page .export-btn::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 10000;
+}
+
+.company-page .export-btn:hover::after {
+    opacity: 1;
+}
+
+/* Small arrow pointing UP */
+.company-page .export-btn::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid #1f2937;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 10000;
+}
+
+.company-page .export-btn:hover::before {
+    opacity: 1;
+}
+
+
+/* Company Info and Transactions cards - tall with scroll */
+.company-page .dashboard-grid>.card:nth-child(1),
+.company-page .dashboard-grid>.card:nth-child(2) {
+    min-height: 800px;
+    max-height: 800px;
+    overflow-y: auto;
+}
+
+/* Right column wrapper - specific targeting */
+.company-page .dashboard-grid>div:last-child {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+    height: 800px !important;
+}
+
+/* KPI card - no scroll, takes up space it needs */
+.company-page .kpi-card {
+    overflow: visible !important;
+    flex-shrink: 0 !important;
+    height: auto !important;
+}
+
+/* Disruption card - fills remaining space with scroll */
+.company-page .disruption-card {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Make the update button stick to bottom */
+/* .company-page .card .btn, */
+.company-page .card>p:last-child {
+    margin-top: auto !important;
+}
+
+/* KPI graph sizing */
+.company-page .graph-container {
+    height: 200px;
+    margin: 10px 0;
+}
+
+/* Hover effect for all cards */
+.company-page .card:hover {
+    border: 1px solid #22c55e !important;
+    box-shadow: 0 1px 12px rgba(34, 197, 94, 0.2) !important;
+    transition: all 0.3s ease !important;
 }
