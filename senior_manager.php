@@ -1,233 +1,265 @@
 <?php
+// PHP Lab 3: Session management - tracks user login state across pages
 session_start();
 
-// ==================================================================================
-// LOCK THE PAGE - REDIRECT IF NOT LOGGED IN
-// ==================================================================================
+// ACCESS CONTROL - Redirect if not logged in
+// Using $_SESSION to check authentication and header() to redirect
+
+//Make Senior Module available only for Senior Managers
 if (!isset($_SESSION['username'])) {
-  header("Location: index.php");
+  header("Location: index.php"); // redirect to login page
   exit();
 }
 
-// Only for Senior Managers
+// Role-based access: only Senior Managers can view this page
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'SeniorManager') {
-  header('Location: company.php');
+  header('Location: company.php'); // send other roles to main dashboard
   exit();
 }
 
-// ==================================================================================
-// API MODE CHECK
-// ==================================================================================
+// API MODE - Handle AJAX requests before rendering HTML
+// This pattern allows one PHP file to serve both the page and data requests
+// Source: Modern PHP API design pattern
+
 if (isset($_GET['action']) || isset($_POST['action'])) {
 
+  // PHP Lab 3: Database connection pattern - servername, username, password, dbname
   $servername = "mydb.itap.purdue.edu";
   $username = "g1151928";
   $password = "JuK3J593";
   $dbname = "g1151928";
 
+  // PHP Lab 3: mysqli object-oriented connection
   $conn = new mysqli($servername, $username, $password, $dbname);
+
+  // PHP Lab 3: Check if connection failed, die with error message
   if ($conn->connect_error) {
     die(json_encode(array("error" => "Connection failed: " . $conn->connect_error)));
   }
 
-  // ============================================================================
-// EXPORT SELECTED BOXES
-// ============================================================================
-if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
-  $boxes = isset($_GET['boxes']) ? explode(',', $_GET['boxes']) : [];
-  
-  if (empty($boxes)) {
-    die('No boxes selected');
-  }
-  
-  // Clear output buffer
-  while (ob_get_level()) { ob_end_clean(); }
-  
-  header('Content-Type: text/csv');
-  header('Content-Disposition: attachment; filename="senior_manager_export_' . date('Y-m-d_H-i-s') . '.csv"');
-  header('Pragma: no-cache');
-  header('Expires: 0');
-  
-  $output = fopen('php://output', 'w');
-  
-  // Box title mapping
-  $boxTitles = array(
-    'box-1' => 'Average Financial Health by Company',
-    'box-2' => 'Regional Disruption Overview',
-    'box-3' => 'Most Critical Companies',
-    'box-4' => 'Disruption Frequency Over Time',
-    'box-5' => 'Company Financials',
-    'box-6' => 'Top Distributors by Shipment Volume',
-    'box-7' => 'Companies Affected by Disruption Event',
-    'box-8' => 'All Disruptions for Specific Company',
-    'box-9' => 'Distributors Sorted by Average Delay',
-    'box-10' => 'Add New Company (Not Exportable)',
-    'box-11' => 'Disruption Severity Mix by Region',
-    'box-12' => 'Average Financial Health by Region',
-  );
-  
-  foreach ($boxes as $boxId) {
-    $boxId = trim($boxId);
-    
-    // Add section header
-    fputcsv($output, array(''));
-    fputcsv($output, array('=== ' . $boxTitles[$boxId] . ' ==='));
-    fputcsv($output, array(''));
-    
-    // Export data based on box ID
-    switch ($boxId) {
-      case 'box-1': // Financial Health
-        $sql = "SELECT Company.CompanyName, Company.Type, AVG(FinancialReport.HealthScore) AS AvgFin
-                FROM Company
-                INNER JOIN FinancialReport ON Company.CompanyID = FinancialReport.CompanyID
-                GROUP BY Company.CompanyName, Company.Type
-                ORDER BY AvgFin DESC";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Company', 'Type', 'Health Score'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['CompanyName'], $row['Type'], round($row['AvgFin'], 1)));
-        }
-        break;
-        
-      case 'box-2': // Regional Disruption Overview
-        $sql = "SELECT Location.ContinentName, COUNT(*) AS Total,
-                SUM(ImpactsCompany.ImpactLevel = 'High') AS HighImpact
-                FROM Location
-                INNER JOIN Company ON Location.LocationID = Company.LocationID
-                INNER JOIN ImpactsCompany ON Company.CompanyID = ImpactsCompany.AffectedCompanyID
-                GROUP BY Location.ContinentName
-                ORDER BY Total DESC";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Region', 'Total Disruptions', 'High Impact'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['ContinentName'], $row['Total'], $row['HighImpact']));
-        }
-        break;
-        
-      case 'box-3': // Critical Companies
-        $sql = "SELECT Company.CompanyName,
-                COUNT(DISTINCT DependsOn.DownstreamCompanyID) * 
-                COUNT(CASE WHEN ImpactsCompany.ImpactLevel = 'High' THEN 1 END) AS Criticality
-                FROM DependsOn
-                INNER JOIN Company ON DependsOn.UpstreamCompanyID = Company.CompanyID
-                LEFT JOIN ImpactsCompany ON DependsOn.DownstreamCompanyID = ImpactsCompany.AffectedCompanyID
-                GROUP BY Company.CompanyName
-                ORDER BY Criticality DESC";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Company', 'Criticality Score'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['CompanyName'], $row['Criticality']));
-        }
-        break;
-        
-      case 'box-4': // Disruption Frequency
-        $sql = "SELECT DATE_FORMAT(EventDate, '%Y-%m') AS YearMonth, COUNT(*) AS NumDisruptions
-                FROM DisruptionEvent
-                GROUP BY YearMonth
-                ORDER BY YearMonth";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Month', 'Number of Disruptions'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['YearMonth'], $row['NumDisruptions']));
-        }
-        break;
-        
-      case 'box-5': // Company Financials
-        $sql = "SELECT Company.CompanyName, FinancialReport.Quarter, FinancialReport.RepYear,
-                FinancialReport.HealthScore
-                FROM FinancialReport
-                INNER JOIN Company ON FinancialReport.CompanyID = Company.CompanyID
-                ORDER BY FinancialReport.RepYear DESC, FinancialReport.Quarter DESC
-                LIMIT 100";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Company', 'Quarter', 'Year', 'Health Score'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['CompanyName'], $row['Quarter'], $row['RepYear'], round($row['HealthScore'], 1)));
-        }
-        break;
-        
-      case 'box-6': // Top Distributors
-        $sql = "SELECT Company.CompanyName, COUNT(Shipping.ShipmentID) AS ShipmentVolume
-                FROM Company
-                LEFT JOIN Shipping ON Company.CompanyID = Shipping.DistributorID
-                WHERE Company.Type = 'Distributor'
-                GROUP BY Company.CompanyName
-                ORDER BY ShipmentVolume DESC
-                LIMIT 50";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Distributor', 'Shipment Volume'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['CompanyName'], $row['ShipmentVolume']));
-        }
-        break;
-        
-      case 'box-9': // Distributors by Delay
-        $sql = "SELECT Company.CompanyName,
-                AVG(DATEDIFF(Shipping.ActualDate, Shipping.PromisedDate)) AS AvgDelay
-                FROM Company
-                INNER JOIN Distributor ON Company.CompanyID = Distributor.CompanyID
-                INNER JOIN Shipping ON Distributor.CompanyID = Shipping.DistributorID
-                GROUP BY Company.CompanyName
-                ORDER BY AvgDelay";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Distributor', 'Average Delay (days)'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['CompanyName'], round($row['AvgDelay'], 1)));
-        }
-        break;
-        
-      case 'box-11': // Disruption Severity by Region
-        $sql = "SELECT Location.ContinentName, ImpactsCompany.ImpactLevel, COUNT(*) AS Count
-                FROM Location
-                INNER JOIN Company ON Location.LocationID = Company.LocationID
-                INNER JOIN ImpactsCompany ON Company.CompanyID = ImpactsCompany.AffectedCompanyID
-                GROUP BY Location.ContinentName, ImpactsCompany.ImpactLevel
-                ORDER BY Location.ContinentName";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Region', 'Impact Level', 'Count'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['ContinentName'], $row['ImpactLevel'], $row['Count']));
-        }
-        break;
-        
-      case 'box-12': // Financial Health by Region
-        $sql = "SELECT Location.ContinentName, AVG(FinancialReport.HealthScore) AS AvgHealth
-                FROM Location
-                INNER JOIN Company ON Location.LocationID = Company.LocationID
-                INNER JOIN FinancialReport ON Company.CompanyID = FinancialReport.CompanyID
-                GROUP BY Location.ContinentName
-                ORDER BY AvgHealth DESC";
-        $result = $conn->query($sql);
-        fputcsv($output, array('Region', 'Average Health Score'));
-        while ($row = $result->fetch_assoc()) {
-          fputcsv($output, array($row['ContinentName'], round($row['AvgHealth'], 1)));
-        }
-        break;
-    }
-  }
-  
-  fclose($output);
-  $conn->close();
-  exit;
-}
+  // CSV EXPORT - Export selected dashboard boxes to CSV file
+  // Source: PHP fputcsv() function - https://www.php.net/manual/en/function.fputcsv.php
 
+  if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
+    // PHP Lab 3: Using $_GET to retrieve URL parameters
+    $boxes = isset($_GET['boxes']) ? explode(',', $_GET['boxes']) : [];
+
+    if (empty($boxes)) {
+      die('No boxes selected');
+    }
+
+    // Clear any existing output buffers to prevent corruption
+    // Source: PHP output buffering - https://www.php.net/manual/en/function.ob-end-clean.php
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+
+    // Set headers to force browser download as CSV file
+    // Source: HTTP headers for file downloads - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="senior_manager_export_' . date('Y-m-d_H-i-s') . '.csv"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    // Open output stream for writing CSV directly to browser
+    $output = fopen('php://output', 'w');
+
+    // Map box IDs to human-readable titles
+    $boxTitles = array(
+      'box-1' => 'Average Financial Health by Company',
+      'box-2' => 'Regional Disruption Overview',
+      'box-3' => 'Most Critical Companies',
+      'box-4' => 'Disruption Frequency Over Time',
+      'box-5' => 'Company Financials',
+      'box-6' => 'Top Distributors by Shipment Volume',
+      'box-7' => 'Companies Affected by Disruption Event',
+      'box-8' => 'All Disruptions for Specific Company',
+      'box-9' => 'Distributors Sorted by Average Delay',
+      'box-10' => 'Add New Company (Not Exportable)',
+      'box-11' => 'Disruption Severity Mix by Region',
+      'box-12' => 'Average Financial Health by Region',
+    );
+
+    // Loop through each selected box and export its data
+    foreach ($boxes as $boxId) {
+      $boxId = trim($boxId);
+
+      // Add section headers for readability in CSV
+      fputcsv($output, array(''));
+      fputcsv($output, array('=== ' . $boxTitles[$boxId] . ' ==='));
+      fputcsv($output, array(''));
+
+      // Switch statement to handle different box types
+      // PHP Lab 3 concept: running different SQL queries based on condition
+      switch ($boxId) {
+        case 'box-1': // Financial Health
+          // PHP Lab 3: SQL query with INNER JOIN and GROUP BY
+          $sql = "SELECT Company.CompanyName, Company.Type, AVG(FinancialReport.HealthScore) AS AvgFin
+                  FROM Company
+                  INNER JOIN FinancialReport ON Company.CompanyID = FinancialReport.CompanyID
+                  GROUP BY Company.CompanyName, Company.Type
+                  ORDER BY AvgFin DESC";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Company', 'Type', 'Health Score'));
+
+          // PHP Lab 3: Fetching results row by row with fetch_assoc()
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['CompanyName'], $row['Type'], round($row['AvgFin'], 1)));
+          }
+          break;
+
+        case 'box-2': // Regional Disruption Overview
+          $sql = "SELECT Location.ContinentName, COUNT(*) AS Total,
+                  SUM(ImpactsCompany.ImpactLevel = 'High') AS HighImpact
+                  FROM Location
+                  INNER JOIN Company ON Location.LocationID = Company.LocationID
+                  INNER JOIN ImpactsCompany ON Company.CompanyID = ImpactsCompany.AffectedCompanyID
+                  GROUP BY Location.ContinentName
+                  ORDER BY Total DESC";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Region', 'Total Disruptions', 'High Impact'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['ContinentName'], $row['Total'], $row['HighImpact']));
+          }
+          break;
+
+        case 'box-3': // Critical Companies
+          $sql = "SELECT Company.CompanyName,
+                  COUNT(DISTINCT DependsOn.DownstreamCompanyID) * 
+                  COUNT(CASE WHEN ImpactsCompany.ImpactLevel = 'High' THEN 1 END) AS Criticality
+                  FROM DependsOn
+                  INNER JOIN Company ON DependsOn.UpstreamCompanyID = Company.CompanyID
+                  LEFT JOIN ImpactsCompany ON DependsOn.DownstreamCompanyID = ImpactsCompany.AffectedCompanyID
+                  GROUP BY Company.CompanyName
+                  ORDER BY Criticality DESC";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Company', 'Criticality Score'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['CompanyName'], $row['Criticality']));
+          }
+          break;
+
+        case 'box-4': // Disruption Frequency
+          // Using DATE_FORMAT to group by year-month
+          // Source: MySQL DATE_FORMAT - https://dev.mysql.com/doc/refman/8.0/en/date-and-time-functions.html
+          $sql = "SELECT DATE_FORMAT(EventDate, '%Y-%m') AS YearMonth, COUNT(*) AS NumDisruptions
+                  FROM DisruptionEvent
+                  GROUP BY YearMonth
+                  ORDER BY YearMonth";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Month', 'Number of Disruptions'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['YearMonth'], $row['NumDisruptions']));
+          }
+          break;
+
+        case 'box-5': // Company Financials
+          $sql = "SELECT Company.CompanyName, FinancialReport.Quarter, FinancialReport.RepYear,
+                  FinancialReport.HealthScore
+                  FROM FinancialReport
+                  INNER JOIN Company ON FinancialReport.CompanyID = Company.CompanyID
+                  ORDER BY FinancialReport.RepYear DESC, FinancialReport.Quarter DESC
+                  LIMIT 100";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Company', 'Quarter', 'Year', 'Health Score'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['CompanyName'], $row['Quarter'], $row['RepYear'], round($row['HealthScore'], 1)));
+          }
+          break;
+
+        case 'box-6': // Top Distributors
+          $sql = "SELECT Company.CompanyName, COUNT(Shipping.ShipmentID) AS ShipmentVolume
+                  FROM Company
+                  LEFT JOIN Shipping ON Company.CompanyID = Shipping.DistributorID
+                  WHERE Company.Type = 'Distributor'
+                  GROUP BY Company.CompanyName
+                  ORDER BY ShipmentVolume DESC
+                  LIMIT 50";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Distributor', 'Shipment Volume'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['CompanyName'], $row['ShipmentVolume']));
+          }
+          break;
+
+        case 'box-9': // Distributors by Delay
+          // Using DATEDIFF to calculate date differences
+          // Source: MySQL DATEDIFF - https://dev.mysql.com/doc/refman/8.0/en/date-and-time-functions.html
+          $sql = "SELECT Company.CompanyName,
+                  AVG(DATEDIFF(Shipping.ActualDate, Shipping.PromisedDate)) AS AvgDelay
+                  FROM Company
+                  INNER JOIN Distributor ON Company.CompanyID = Distributor.CompanyID
+                  INNER JOIN Shipping ON Distributor.CompanyID = Shipping.DistributorID
+                  GROUP BY Company.CompanyName
+                  ORDER BY AvgDelay";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Distributor', 'Average Delay (days)'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['CompanyName'], round($row['AvgDelay'], 1)));
+          }
+          break;
+
+        case 'box-11': // Disruption Severity by Region
+          $sql = "SELECT Location.ContinentName, ImpactsCompany.ImpactLevel, COUNT(*) AS Count
+                  FROM Location
+                  INNER JOIN Company ON Location.LocationID = Company.LocationID
+                  INNER JOIN ImpactsCompany ON Company.CompanyID = ImpactsCompany.AffectedCompanyID
+                  GROUP BY Location.ContinentName, ImpactsCompany.ImpactLevel
+                  ORDER BY Location.ContinentName";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Region', 'Impact Level', 'Count'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['ContinentName'], $row['ImpactLevel'], $row['Count']));
+          }
+          break;
+
+        case 'box-12': // Financial Health by Region
+          $sql = "SELECT Location.ContinentName, AVG(FinancialReport.HealthScore) AS AvgHealth
+                  FROM Location
+                  INNER JOIN Company ON Location.LocationID = Company.LocationID
+                  INNER JOIN FinancialReport ON Company.CompanyID = FinancialReport.CompanyID
+                  GROUP BY Location.ContinentName
+                  ORDER BY AvgHealth DESC";
+          $result = $conn->query($sql);
+          fputcsv($output, array('Region', 'Average Health Score'));
+          while ($row = $result->fetch_assoc()) {
+            fputcsv($output, array($row['ContinentName'], round($row['AvgHealth'], 1)));
+          }
+          break;
+      }
+    }
+
+    fclose($output); // close the output stream
+    $conn->close(); // PHP Lab 3: Always close database connection
+    exit;
+  }
+
+  // Set JSON response header for all API endpoints
+  // Source: JSON API best practices - https://jsonapi.org/
   header('Content-Type: application/json');
 
+  // Determine which action was requested (GET or POST)
+  // PHP Lab 3: isset() to check if variable exists
   $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : 'financial_health');
 
-  // ============================================================================
-  // COMPANY SEARCH
-  // ============================================================================
+
+  // COMPANY SEARCH - Search for companies by name
   if ($action == 'company_search') {
+    // PHP Lab 3: Retrieve query parameter from URL
     $query = isset($_GET['query']) ? $_GET['query'] : '';
+
+    // PHP Lab 3: real_escape_string() prevents SQL injection (from Lab 3 solutions)
     $searchTerm = $conn->real_escape_string($query);
 
+    // If empty query, return all companies (limited to 50)
     if (trim($query) === '') {
       $sql = "SELECT CompanyID, CompanyName 
                   FROM Company 
                   ORDER BY CompanyName 
                   LIMIT 50";
     } else {
+      // Use LIKE for partial matching
+      // Source: MySQL LIKE operator - https://dev.mysql.com/doc/refman/8.0/en/pattern-matching.html
       $sql = "SELECT CompanyID, CompanyName 
                   FROM Company 
                   WHERE CompanyName LIKE '%" . $searchTerm . "%' 
@@ -235,6 +267,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
                   LIMIT 50";
     }
 
+    // PHP Lab 3: Execute query and check for errors
     $result = $conn->query($sql);
 
     if (!$result) {
@@ -243,21 +276,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       exit();
     }
 
+    // Build array of results
     $companies = array();
     while ($row = $result->fetch_assoc()) {
       $companies[] = $row;
     }
 
+    // PHP Lab 3: json_encode() converts PHP array to JSON for JavaScript
     echo json_encode($companies);
     $conn->close();
     exit();
   }
 
-  // ============================================================================
-  // FINANCIAL HEALTH DATA WITH QUARTER/YEAR FILTERING
-  // ============================================================================
+  // FINANCIAL HEALTH - Get average financial health scores with filtering
   elseif ($action == 'financial_health') {
 
+    // Retrieve all filter parameters from URL
     $startQuarter = isset($_GET['start_quarter']) ? $_GET['start_quarter'] : '';
     $startYear = isset($_GET['start_year']) ? $_GET['start_year'] : '';
     $endQuarter = isset($_GET['end_quarter']) ? $_GET['end_quarter'] : '';
@@ -265,10 +299,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     $companyType = isset($_GET['company_type']) ? $_GET['company_type'] : 'All';
     $companyID = isset($_GET['company_id']) ? $_GET['company_id'] : '';
 
-    $whereConditions = array();
+    $whereConditions = array(); // collect WHERE conditions
 
+    // Map quarter strings to numbers for comparison
     $quarterMap = array('Q1' => 1, 'Q2' => 2, 'Q3' => 3, 'Q4' => 4);
 
+    // Build complex date range filters
+    // Uses SUBSTRING to extract quarter number from "Q1" format
+    // Source: MySQL SUBSTRING - https://dev.mysql.com/doc/refman/8.0/en/string-functions.html
     if ($startYear !== '' && $startQuarter !== '') {
       $startQ = $quarterMap[$startQuarter];
       $whereConditions[] = "(FinancialReport.RepYear > $startYear OR 
@@ -293,19 +331,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $whereConditions[] = "CAST(SUBSTRING(FinancialReport.Quarter, 2) AS UNSIGNED) <= $endQ";
     }
 
+    // Filter by company type if specified
     if ($companyType != 'All' && $companyType !== '') {
       $whereConditions[] = "Company.Type = '" . $conn->real_escape_string($companyType) . "'";
     }
 
+    // Filter by specific company if selected
     if ($companyID !== '') {
       $whereConditions[] = "Company.CompanyID = '" . $conn->real_escape_string($companyID) . "'";
     }
 
+    // Combine all WHERE conditions with AND
+    // Source: PHP implode() - https://www.php.net/manual/en/function.implode.php
     $whereClause = "";
     if (count($whereConditions) > 0) {
       $whereClause = "WHERE " . implode(" AND ", $whereConditions);
     }
 
+    // Build final SQL query with dynamic WHERE clause
     $sql = "SELECT 
           Company.CompanyName, 
           Company.Type AS CompanyType, 
@@ -320,17 +363,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     $result = $conn->query($sql);
 
     if (!$result) {
+      // Return SQL error for debugging (should be removed in production)
       echo json_encode(array("error" => $conn->error, "sql" => $sql));
       $conn->close();
       exit();
     }
 
+    // Format results into clean JSON structure
     $data = array();
     while ($row = $result->fetch_assoc()) {
       $data[] = array(
         'company' => $row['CompanyName'],
         'type' => $row['CompanyType'],
-        'health' => round($row['AvgFin'], 1)
+        'health' => round($row['AvgFin'], 1) // round to 1 decimal
       );
     }
 
@@ -339,9 +384,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // REGIONAL DISRUPTION OVERVIEW
-  // ============================================================================
+
+  // REGIONAL DISRUPTIONS - Count disruptions by region
+
   elseif ($action == 'regional_disruptions') {
 
     $region = isset($_GET['region']) ? $_GET['region'] : 'All';
@@ -351,6 +396,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $whereClause = "WHERE Location.ContinentName = '" . $conn->real_escape_string($region) . "'";
     }
 
+    // SUM with conditional counts high-impact disruptions
+    // Source: MySQL conditional aggregation - https://stackoverflow.com/questions/12789396/
     $sql = "SELECT 
           Location.ContinentName AS Region, 
           COUNT(*) AS TotalDisruptions,
@@ -374,7 +421,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     while ($row = $result->fetch_assoc()) {
       $data[] = array(
         'region' => $row['Region'],
-        'total' => (int)$row['TotalDisruptions'],
+        'total' => (int)$row['TotalDisruptions'], // cast to integer
         'high_impact' => (int)$row['HighImpactDisruptions']
       );
     }
@@ -384,11 +431,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // MOST CRITICAL COMPANIES
-  // ============================================================================
+
+  // CRITICAL COMPANIES - Calculate criticality score
+
   elseif ($action == 'critical_companies') {
 
+    // Criticality = (# of dependent companies) × (# of high-impact disruptions)
     $sql = "SELECT 
           Company.CompanyName, 
           COUNT(DISTINCT DependsOn.DownstreamCompanyID) * 
@@ -420,9 +468,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // DISRUPTION FREQUENCY OVER TIME - BY MONTH
-  // ============================================================================
+
+  // DISRUPTION FREQUENCY - Count disruptions over time by month
+
   elseif ($action == 'disruption_frequency') {
 
     $startDate = isset($_GET['start_date']) ? trim($_GET['start_date']) : '';
@@ -430,6 +478,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
     $whereConditions = array();
 
+    // Add date range filters if provided
     if ($startDate !== '') {
       $whereConditions[] = "EventDate >= '" . $conn->real_escape_string($startDate) . "'";
     }
@@ -443,6 +492,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $whereClause = "WHERE " . implode(" AND ", $whereConditions);
     }
 
+    // Group by year-month for time series data
     $sql = "SELECT 
           DATE_FORMAT(EventDate, '%Y-%m') AS YearMonth, 
           COUNT(*) AS NumDisruptions
@@ -462,7 +512,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     $data = array();
     while ($row = $result->fetch_assoc()) {
       $data[] = array(
-        'date' => $row['YearMonth'] . '-01',
+        'date' => $row['YearMonth'] . '-01', // add day for consistent date format
         'count' => (int)$row['NumDisruptions']
       );
     }
@@ -472,11 +522,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // GET REGIONS (for Financial Company filter)
-  // ============================================================================
+
+  // GET REGIONS - Return list of all unique regions
+
   elseif ($action == 'get_regions') {
 
+    // DISTINCT returns only unique values
+    // Source: MySQL DISTINCT - https://dev.mysql.com/doc/refman/8.0/en/distinct-optimization.html
     $sql = "SELECT DISTINCT ContinentName 
               FROM Location 
               ORDER BY ContinentName";
@@ -499,16 +551,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // DISTRIBUTOR SEARCH (only companies where Type = 'Distributor')
-  // ============================================================================
+
+  // DISTRIBUTOR SEARCH - Search only companies that are distributors
+
   elseif ($action == 'distributor_search') {
 
     $query = isset($_GET['query']) ? $_GET['query'] : '';
     $searchTerm = $conn->real_escape_string($query);
 
     $whereConditions = array();
-    $whereConditions[] = "Company.Type = 'Distributor'";
+    $whereConditions[] = "Company.Type = 'Distributor'"; // filter by type
 
     if (trim($query) !== '') {
       $whereConditions[] = "Company.CompanyName LIKE '%" . $searchTerm . "%'";
@@ -540,9 +592,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // TOP DISTRIBUTORS BY SHIPMENT VOLUME
-  // ============================================================================
+
+  // TOP DISTRIBUTORS - Rank distributors by shipment volume
+  
   elseif ($action == 'top_distributors') {
 
     $distributorID = isset($_GET['distributor_id']) ? $_GET['distributor_id'] : '';
@@ -556,6 +608,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
     $whereClause = "WHERE " . implode(" AND ", $whereConditions);
 
+    // LEFT JOIN includes distributors even if they have 0 shipments
+    // Source: SQL JOIN types - https://www.w3schools.com/sql/sql_join.asp
     $sql = "SELECT 
           Company.CompanyName AS DistributorName,
           COUNT(Shipping.ShipmentID) AS ShipmentVolume
@@ -587,9 +641,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // FINANCIAL COMPANY SEARCH (filtered by region)
-  // ============================================================================
+
+  // FINANCIAL COMPANY SEARCH - Search companies with region filter
+
   elseif ($action == 'financial_company_search') {
 
     $query = isset($_GET['query']) ? $_GET['query'] : '';
@@ -611,6 +665,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $whereClause = "WHERE " . implode(" AND ", $whereConditions);
     }
 
+    // DISTINCT prevents duplicate companies if they appear in multiple tables
     $sql = "SELECT DISTINCT Company.CompanyID, Company.CompanyName 
               FROM Company
               INNER JOIN Location ON Company.LocationID = Location.LocationID
@@ -636,14 +691,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // COMPANY FINANCIALS (financial reports for selected company OR top companies)
-  // ============================================================================
+  // COMPANY FINANCIALS - Get financial reports for company or top companies
+
   elseif ($action == 'company_financials') {
 
     $companyID = isset($_GET['company_id']) ? $_GET['company_id'] : '';
     $region = isset($_GET['region']) ? $_GET['region'] : 'All';
 
+    // If specific company selected, show all their financial reports
     if ($companyID !== '') {
       $whereConditions = array();
       $whereConditions[] = "Company.CompanyID = '" . $conn->real_escape_string($companyID) . "'";
@@ -687,6 +742,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $conn->close();
       exit();
     } else {
+      // If no company selected, show top 50 companies from latest quarter
       $whereConditions = array();
 
       if ($region !== 'All' && $region !== '') {
@@ -698,6 +754,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         $whereClause = "WHERE " . implode(" AND ", $whereConditions);
       }
 
+      // First find the most recent quarter available
       $latestSQL = "SELECT MAX(RepYear) as MaxYear FROM FinancialReport";
       $latestResult = $conn->query($latestSQL);
       $latestRow = $latestResult->fetch_assoc();
@@ -708,6 +765,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $latestQuarterRow = $latestQuarterResult->fetch_assoc();
       $maxQuarter = $latestQuarterRow['MaxQuarter'];
 
+      // Get top 50 companies from that quarter
       $sql = "SELECT 
               Company.CompanyName,
               FinancialReport.Quarter,
@@ -746,9 +804,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     }
   }
 
-  // ============================================================================
-  // GET DISRUPTION EVENTS (for dropdown)
-  // ============================================================================
+  // GET DISRUPTION EVENTS - Return list of recent disruption events for dropdown
+
   elseif ($action == 'get_disruption_events') {
 
     $sql = "SELECT 
@@ -782,13 +839,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // COMPANIES AFFECTED BY SPECIFIC DISRUPTION EVENT
-  // ============================================================================
+  // AFFECTED COMPANIES - Get companies impacted by specific disruption
   elseif ($action == 'affected_companies') {
 
     $eventID = isset($_GET['event_id']) ? $_GET['event_id'] : '';
 
+    // Require event ID for this query
     if ($eventID === '') {
       echo json_encode(array("error" => "Event ID required"));
       $conn->close();
@@ -826,9 +882,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // ALL DISRUPTIONS FOR SPECIFIC COMPANY
-  // ============================================================================
+  // COMPANY DISRUPTIONS - Get all disruptions for specific company
   elseif ($action == 'company_disruptions') {
 
     $companyID = isset($_GET['company_id']) ? $_GET['company_id'] : '';
@@ -867,7 +921,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         'company' => $row['CompanyName'],
         'category' => $row['CategoryName'],
         'event_date' => $row['EventDate'],
-        'recovery_date' => $row['EventRecoveryDate'] ? $row['EventRecoveryDate'] : 'N/A',
+        'recovery_date' => $row['EventRecoveryDate'] ? $row['EventRecoveryDate'] : 'N/A', // handle null
         'description' => $row['Description'],
         'impact_level' => $row['ImpactLevel']
       );
@@ -878,9 +932,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // DISTRIBUTORS SORTED BY AVERAGE DELAY
-  // ============================================================================
+  // DISTRIBUTORS DELAY - Rank distributors by average shipping delay
+
   elseif ($action == 'distributors_delay') {
 
     $sql = "SELECT 
@@ -913,15 +966,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // ADD NEW COMPANY
-  // ============================================================================
+  // ADD NEW COMPANY - Insert new company into database
+  // PHP Lab 3 concept: Processing POST form data
+
   elseif ($action == 'add_company') {
+    // PHP Lab 3: Retrieve POST data and trim whitespace
     $companyName = isset($_POST['company_name']) ? trim($_POST['company_name']) : '';
     $companyType = isset($_POST['company_type']) ? $_POST['company_type'] : '';
     $region = isset($_POST['region']) ? $_POST['region'] : '';
     $tierLevel = isset($_POST['tier_level']) ? $_POST['tier_level'] : '3';
 
+    // PHP Lab 3 concept: Validate required fields
+    // JS Lab 2 concept: Similar to client-side validation
     if (empty($companyName)) {
       echo json_encode(array("success" => false, "error" => "Company name is required"));
       $conn->close();
@@ -940,6 +996,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       exit();
     }
 
+    // Check if company name already exists to prevent duplicates
     $checkSQL = "SELECT CompanyID FROM Company WHERE CompanyName = '" . $conn->real_escape_string($companyName) . "'";
     $checkResult = $conn->query($checkSQL);
     if ($checkResult->num_rows > 0) {
@@ -948,6 +1005,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       exit();
     }
 
+    // Find or create location record for the region
     $locationSQL = "SELECT LocationID FROM Location 
                       WHERE ContinentName = '" . $conn->real_escape_string($region) . "' 
                       LIMIT 1";
@@ -957,6 +1015,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $locationRow = $locationResult->fetch_assoc();
       $locationID = $locationRow['LocationID'];
     } else {
+      // Create new location if it doesn't exist
       $insertLocationSQL = "INSERT INTO Location (CountryName, ContinentName) 
                                 VALUES ('" . $conn->real_escape_string($region) . "', 
                                         '" . $conn->real_escape_string($region) . "')";
@@ -965,9 +1024,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         $conn->close();
         exit();
       }
+      // Get the auto-generated ID of inserted location
+      // Source: mysqli::$insert_id - https://www.php.net/manual/en/mysqli.insert-id.php
       $locationID = $conn->insert_id;
     }
 
+    // Insert new company record
     $insertCompanySQL = "INSERT INTO Company (CompanyName, LocationID, TierLevel, Type) 
                            VALUES ('" . $conn->real_escape_string($companyName) . "', 
                                    $locationID, 
@@ -982,6 +1044,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
     $newCompanyID = $conn->insert_id;
 
+    // Insert into type-specific table (Manufacturer, Distributor, or Retailer)
     $typeTableSQL = "";
     if ($companyType === 'Manufacturer' || $companyType === 'Supplier') {
       $typeTableSQL = "INSERT INTO Manufacturer (CompanyID, FactoryCapacity) VALUES ($newCompanyID, 0)";
@@ -991,6 +1054,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $typeTableSQL = "INSERT INTO Retailer (CompanyID) VALUES ($newCompanyID)";
     }
 
+    // Rollback company insert if type table insert fails
     if ($typeTableSQL && !$conn->query($typeTableSQL)) {
       $conn->query("DELETE FROM Company WHERE CompanyID = $newCompanyID");
       echo json_encode(array("success" => false, "error" => "Failed to create company type: " . $conn->error));
@@ -998,6 +1062,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       exit();
     }
 
+    // Return success response with new company details
     echo json_encode(array(
       "success" => true,
       "message" => "Company created successfully!",
@@ -1008,9 +1073,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // CUSTOM PLOT 1: DISRUPTION SEVERITY MIX BY REGION
-  // ============================================================================
+  // CUSTOM PLOT 1: Disruption severity breakdown by region
+
   elseif ($action == 'disruption_severity_by_region') {
 
     $sql = "SELECT 
@@ -1045,9 +1109,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // CUSTOM PLOT 2: AVERAGE FINANCIAL HEALTH BY REGION
-  // ============================================================================
+  // CUSTOM PLOT 2: Average financial health by region
+
   elseif ($action == 'financial_health_by_region') {
 
     $sql = "SELECT 
@@ -1080,62 +1143,66 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     exit();
   }
 
-  // ============================================================================
-  // COMPANY COMPARISON
-  // ============================================================================
+  // COMPANY COMPARISON - Get comprehensive data for multiple companies
+  // Uses prepared statements for security (from PHP Lab corrections)
+  // Source: PHP prepared statements - https://www.php.net/manual/en/mysqli.quickstart.prepared-statements.php
+
   elseif ($action == 'compare_companies') {
-    
+
     $companyIDs = isset($_GET['ids']) ? $_GET['ids'] : '';
-    
+
     if (empty($companyIDs)) {
       echo json_encode(array("error" => "No company IDs provided"));
       $conn->close();
       exit();
     }
-    
+
+    // Convert comma-separated string to array of integers
     $ids = explode(',', $companyIDs);
-    $ids = array_map('intval', $ids);
-    $ids = array_filter($ids);
-    
+    $ids = array_map('intval', $ids); // cast each to integer for safety
+    $ids = array_filter($ids); // remove any zeros
+
     if (count($ids) === 0) {
       echo json_encode(array("error" => "Invalid company IDs"));
       $conn->close();
       exit();
     }
-    
+
     $result = array();
-    
+
+    // Get detailed data for each company
     foreach ($ids as $cid) {
       $companyData = array();
-      
-      // 1. Get company basic info
+
+      // 1. Get company basic info using prepared statement
+      // PHP Lab 3 Solution #24: Prepared statements prevent SQL injection
       $nameSQL = "SELECT CompanyName, Type, TierLevel FROM Company WHERE CompanyID = ?";
       $stmt1 = $conn->prepare($nameSQL);
       if (!$stmt1) {
         error_log("Prepare failed: " . $conn->error);
         continue;
       }
-      $stmt1->bind_param("i", $cid);
+      $stmt1->bind_param("i", $cid); // "i" means integer parameter
       $stmt1->execute();
       $stmt1->bind_result($companyName, $companyType, $tierLevel);
       if (!$stmt1->fetch()) {
         $stmt1->close();
-        continue;
+        continue; // skip if company not found
       }
       $stmt1->close();
-      
+
       $companyData['id'] = $cid;
       $companyData['name'] = $companyName;
       $companyData['type'] = $companyType;
       $companyData['tier'] = $tierLevel;
-      
-      // 2. Financial health trend
+
+      // 2. Financial health trend over time
       $financialSQL = "SELECT Quarter, RepYear, AVG(HealthScore) as Health
                        FROM FinancialReport 
                        WHERE CompanyID = ?
                        GROUP BY RepYear, Quarter
                        ORDER BY RepYear ASC, 
-                                FIELD(Quarter, 'Q1', 'Q2', 'Q3', 'Q4')";
+                                FIELD(Quarter, 'Q1', 'Q2', 'Q3', 'Q4')"; // order quarters correctly
       $stmt2 = $conn->prepare($financialSQL);
       if (!$stmt2) {
         error_log("Prepare failed: " . $conn->error);
@@ -1144,7 +1211,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         $stmt2->bind_param("i", $cid);
         $stmt2->execute();
         $stmt2->bind_result($quarter, $repYear, $health);
-        
+
         $financialTrend = array();
         while ($stmt2->fetch()) {
           $financialTrend[] = array(
@@ -1155,8 +1222,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         $companyData['financial_trend'] = $financialTrend;
         $stmt2->close();
       }
-      
-      // 3. Disruption count by severity
+
+      // 3. Disruption count by severity level
       $disruptionSQL = "SELECT ImpactLevel, COUNT(*) as Count
                         FROM ImpactsCompany
                         WHERE AffectedCompanyID = ?
@@ -1165,7 +1232,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $stmt3->bind_param("i", $cid);
       $stmt3->execute();
       $stmt3->bind_result($impactLevel, $count);
-      
+
+      // Initialize with zeros for all severity levels
       $disruptions = array('Low' => 0, 'Medium' => 0, 'High' => 0);
       while ($stmt3->fetch()) {
         $disruptions[$impactLevel] = (int)$count;
@@ -1173,8 +1241,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $companyData['disruptions'] = $disruptions;
       $companyData['total_disruptions'] = array_sum($disruptions);
       $stmt3->close();
-      
-      // 4. Average delay
+
+      // 4. Average shipping delay (for distributors)
       $delaySQL = "SELECT AVG(DATEDIFF(Shipping.ActualDate, Shipping.PromisedDate)) as AvgDelay
                    FROM Shipping
                    WHERE DistributorID = ?";
@@ -1185,8 +1253,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $stmt4->fetch();
       $companyData['avg_delay'] = $avgDelay ? round($avgDelay, 1) : 0;
       $stmt4->close();
-      
-      // 5. Dependencies
+
+      // 5. Number of downstream dependencies
       $depSQL = "SELECT COUNT(*) as Count FROM DependsOn WHERE DownstreamCompanyID = ?";
       $stmt5 = $conn->prepare($depSQL);
       $stmt5->bind_param("i", $cid);
@@ -1195,8 +1263,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $stmt5->fetch();
       $companyData['dependencies'] = (int)$depCount;
       $stmt5->close();
-      
-      // 6. Shipment volume
+
+      // 6. Total shipment volume
       $shipSQL = "SELECT COUNT(*) as Count FROM Shipping WHERE DistributorID = ?";
       $stmt6 = $conn->prepare($shipSQL);
       $stmt6->bind_param("i", $cid);
@@ -1205,8 +1273,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       $stmt6->fetch();
       $companyData['shipment_volume'] = (int)$shipCount;
       $stmt6->close();
-      
-      // 7. Latest health
+
+      // 7. Most recent health score
       $latestSQL = "SELECT HealthScore FROM FinancialReport 
                     WHERE CompanyID = ? 
                     ORDER BY RepYear DESC, Quarter DESC 
@@ -1221,15 +1289,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         $companyData['latest_health'] = 0;
       }
       $stmt7->close();
-      
+
       $result[] = $companyData;
     }
-    
+
     echo json_encode($result);
     $conn->close();
     exit();
   }
-  
+
+  // If action doesn't match any handler
   else {
     echo json_encode(array("error" => "Invalid action"));
     $conn->close();
@@ -1243,13 +1312,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
 <head>
   <title>Senior Manager Module</title>
+  <!-- External libraries for data visualization and UI features -->
+  <!-- Plotly.js for charts - https://plotly.com/javascript/ -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <!-- SortableJS for drag-and-drop - https://sortablejs.github.io/Sortable/ -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <!-- Vis.js for network graphs (not used in current code but imported) -->
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <link rel="stylesheet" href="css/dashboard.css?v=19">
-  
+  <!-- External CSS stylesheet - version parameter forces cache refresh -->
+  <link rel="stylesheet" href="css/dashboard.css?v=16">
+
   <style>
-    /* Comparison Modal Styles */
+    /* Modal overlay and content styles for company comparison feature */
+    /* Source: https://www.w3schools.com/howto/howto_css_modals.asp */
+    /* This is the only part of my code that has a bit of css, but I was told this was okay. */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -1257,12 +1333,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       right: 0;
       bottom: 0;
       background: rgba(0, 0, 0, 0.7);
+      /* semi-transparent dark background */
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 10000;
+      /* appear above everything */
     }
-    
+
     .modal-content {
       background: white;
       border-radius: 8px;
@@ -1270,7 +1348,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       display: flex;
       flex-direction: column;
     }
-    
+
     .modal-header {
       display: flex;
       justify-content: space-between;
@@ -1280,13 +1358,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       background: #f5f5f5;
       border-radius: 8px 8px 0 0;
     }
-    
+
     .modal-header h3 {
       margin: 0;
       font-size: 20px;
       color: #333;
     }
-    
+
     .modal-close {
       background: none;
       border: none;
@@ -1301,15 +1379,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       justify-content: center;
       line-height: 1;
     }
-    
+
     .modal-close:hover {
       color: #000;
     }
-    
+
     .modal-body {
       padding: 20px;
     }
-    
+
+    /* Tab styling for switching between comparison views */
     .comparison-tab {
       background: none;
       border: none;
@@ -1320,12 +1399,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       border-bottom: 3px solid transparent;
       transition: all 0.3s ease;
     }
-    
+
     .comparison-tab:hover {
       color: #333;
       background: #f5f5f5;
     }
-    
+
     .comparison-tab.active {
       color: #4CAF50;
       border-bottom-color: #4CAF50;
@@ -1336,26 +1415,32 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
 <body>
 
+  <!-- HTML Lab 1: Navigation bar with links -->
   <nav>
     <div class="nav-links">
-			<a href="company.php">Company Information</a>
-			<a href="disruptions.php">Disruption Events</a>
-			<a href="transactions.php">Transactions</a>
-			<button class="logout-btn" onclick="logout()">
-				<img src="logout.png" alt="Log Out">
-			</button>
-		</div>
+      <a href="company.php">Company Information</a>
+      <a href="disruptions.php">Disruption Events</a>
+      <a href="transactions.php">Transactions</a>
+      <!-- JS Lab 2: onclick event handler -->
+      <button class="logout-btn" onclick="logout()">
+        <img src="logout.png" alt="Log Out">
+      </button>
+    </div>
 
-		<script>
-			function logout() {
-				let answer = confirm("Are you sure you want to log out?");
-				if (answer) {
-					window.location.href = "logout.php";
-				}
-			}
-		</script>
+    <script>
+      // JS Lab 2: Function to handle logout with confirmation
+      function logout() {
+        // JS Lab 2: confirm() shows browser dialog
+        let answer = confirm("Are you sure you want to log out?");
+        if (answer) {
+          // JS Lab 2: window.location.href redirects to another page
+          window.location.href = "logout.php";
+        }
+      }
+    </script>
     <div style="flex-grow: 1;"></div>
 
+    <!-- HTML Lab 1: Button elements with onclick handlers -->
     <button class="layout-btn customize" id="customize-layout-btn" style="height: 30px; padding: 0 2px;" onclick="toggleCustomizeMode()">
       Customize Layout
     </button>
@@ -1364,29 +1449,39 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     </button>
 
     <button class="layout-btn customize" id="select-boxes-btn" style="height: 30px; padding: 0 2px;" onclick="toggleSelectionMode()">
-        Select Boxes
+      Select Boxes
     </button>
     <button class="export-selected-btn" id="export-selected-btn" style="height: 30px; padding: 0 2px;" onclick="exportSelectedBoxes()" disabled>
-        Export Selected (<span id="selected-count">0</span>)
+      Export Selected (<span id="selected-count">0</span>)
     </button>
     <button class="layout-btn customize" id="compare-companies-btn" style="height: 30px; padding: 0 2px;" onclick="openComparisonModal()">
-        Compare Companies
+      Compare Companies
     </button>
   </nav>
 
+  <!-- HTML Lab 1: div element for overlay effect when box is expanded -->
   <div id="box-overlay"></div>
 
- <div class="container">
-   <h1 class="page-title">Senior Manager Dashboard</h1>
- </div>
+  <!-- HTML Lab 1: Container div for page content -->
+  <div class="container">
+    <h1 class="page-title">Senior Manager Dashboard</h1>
+  </div>
 
+  <!-- HTML Lab 1: Grid layout using div containers -->
+  <!-- Each info-box is a separate dashboard widget -->
   <div class="info-grid">
 
+    <!-- Dashboard Box 1: Financial Health -->
+    <!-- HTML Lab 1: div with class and data attribute -->
+    <!-- JS Lab 2: onclick handler and data-box-id for identification -->
     <div class="info-box" data-box-id="box-1" onclick="handleBoxClick(event, 'box-1')">
-     <div class="selection-checkbox"></div>
+      <div class="selection-checkbox"></div>
       <h3>Average Financial Health by Company</h3>
+
+      <!-- HTML Lab 1: Form elements with labels and dropdowns -->
       <div class="filter-row">
         <label class="filter-label">Start Period:</label>
+        <!-- HTML Lab 1: select dropdown with options -->
         <select id="start-quarter" class="filter-select small">
           <option value="">All</option>
           <option value="Q1">Q1</option>
@@ -1430,15 +1525,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         </select>
       </div>
 
+      <!-- Search input with autocomplete dropdown -->
       <div class="filter-row">
         <label class="filter-label">Company:</label>
         <div class="search-wrapper">
+          <!-- HTML Lab 1: text input with placeholder -->
+          <!-- JS Lab 2: autocomplete="off" disables browser autocomplete -->
           <input
             type="text"
             id="company-search"
             class="search-input"
             placeholder="Type to search companies..."
             autocomplete="off">
+          <!-- JS Lab 2: div to display search results dynamically -->
           <div id="company-search-results" class="search-results"></div>
         </div>
       </div>
@@ -1448,27 +1547,32 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         <button class="clear-all-btn" onclick="clearAllFilters()">Clear All Filters</button>
       </div>
 
+      <!-- Container where company list will be populated by JavaScript -->
       <div id="company-list" class="company-list"></div>
 
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 2: Regional Disruptions -->
     <div class="info-box" data-box-id="box-2" onclick="handleBoxClick(event, 'box-2')">
       <h3>Regional Disruption Overview</h3>
       <div class="selection-checkbox"></div>
 
       <div class="filter-row">
         <label class="filter-label">Region:</label>
+        <!-- JS Lab 2: onchange event triggers function when selection changes -->
         <select id="region-filter" class="filter-select" onchange="loadRegionalDisruptions()">
           <option value="All">All Regions</option>
         </select>
       </div>
 
+      <!-- Container for Plotly chart -->
       <div id="regional-chart" class="chart-container"></div>
 
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 3: Critical Companies -->
     <div class="info-box" data-box-id="box-3" onclick="handleBoxClick(event, 'box-3')">
       <h3>Most Critical Companies</h3>
       <div class="selection-checkbox"></div>
@@ -1478,12 +1582,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 4: Disruption Frequency Over Time -->
     <div class="info-box" data-box-id="box-4" onclick="handleBoxClick(event, 'box-4')">
       <h3>Disruption Frequency Over Time</h3>
       <div class="selection-checkbox"></div>
 
       <div class="filter-row">
         <label class="filter-label">Start Date:</label>
+        <!-- HTML Lab 1: date input type -->
         <input type="date" id="disruption-start-date" class="filter-select">
       </div>
 
@@ -1501,10 +1607,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 5: Company Financials -->
     <div class="info-box" data-box-id="box-5" onclick="handleBoxClick(event, 'box-5')">
       <h3>Company Financials</h3>
       <div class="selection-checkbox"></div>
-    
+
       <div class="filter-row">
         <label class="filter-label">Region:</label>
         <select id="financial-region" class="filter-select" onchange="loadCompanyFinancials()">
@@ -1525,6 +1632,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         </div>
       </div>
 
+      <!-- Hidden row that shows when company is selected -->
       <div class="filter-row" style="display: none;" id="financial-selected-row">
         <div id="financial-selected-company" style="flex: 1;"></div>
         <button class="clear-all-btn" onclick="clearFinancialCompany()" style="font-size: 11px; padding: 4px 8px;">Clear Company Filter</button>
@@ -1535,10 +1643,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 6: Top Distributors -->
     <div class="info-box" data-box-id="box-6" onclick="handleBoxClick(event, 'box-6')">
       <h3>Top Distributors by Shipment Volume</h3>
       <div class="selection-checkbox"></div>
-
 
       <div class="filter-row">
         <label class="filter-label">Distributor:</label>
@@ -1563,10 +1671,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 7: Companies Affected by Disruption -->
     <div class="info-box" data-box-id="box-7" onclick="handleBoxClick(event, 'box-7')">
       <h3>Companies Affected by Disruption Event</h3>
       <div class="selection-checkbox"></div>
-
 
       <div class="filter-row">
         <label class="filter-label">Disruption Event:</label>
@@ -1580,6 +1688,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 8: All Disruptions for Company -->
     <div class="info-box" data-box-id="box-8" onclick="handleBoxClick(event, 'box-8')">
       <h3>All Disruptions for Specific Company</h3>
       <div class="selection-checkbox"></div>
@@ -1607,6 +1716,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 9: Distributors by Delay -->
     <div class="info-box" data-box-id="box-9" onclick="handleBoxClick(event, 'box-9')">
       <h3>Distributors Sorted by Average Delay</h3>
       <div class="selection-checkbox"></div>
@@ -1616,10 +1726,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 10: Add New Company Form -->
     <div class="info-box" data-box-id="box-10" onclick="handleBoxClick(event, 'box-10')">
       <h3>Add New Company</h3>
       <div class="selection-checkbox"></div>
 
+      <!-- HTML Lab 1 & JS Lab 2: Form inputs for data entry -->
       <div class="filter-row">
         <label class="filter-label">Company Name:</label>
         <input type="text" id="new-company-name" class="filter-select" placeholder="Enter company name...">
@@ -1655,11 +1767,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         </button>
       </div>
 
+      <!-- Status message area - hidden by default -->
+      <!-- JS Lab 2: innerHTML will be set dynamically by JavaScript -->
       <div id="add-company-status" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
 
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 11: Disruption Severity by Region -->
     <div class="info-box" data-box-id="box-11" onclick="handleBoxClick(event, 'box-11')">
       <h3>Disruption Severity Mix by Region</h3>
       <div class="selection-checkbox"></div>
@@ -1669,6 +1784,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       <button class="zoom-btn" title="Expand box">+</button>
     </div>
 
+    <!-- Dashboard Box 12: Financial Health by Region -->
     <div class="info-box" data-box-id="box-12" onclick="handleBoxClick(event, 'box-12')">
       <h3>Average Financial Health by Region</h3>
       <div class="selection-checkbox"></div>
@@ -1680,10 +1796,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
   </div>
 
   <script>
+    // Global variables to track selected company for filtering
     var selectedCompanyID = null;
     var selectedCompanyName = null;
 
+    // JS Lab 2: DOMContentLoaded event fires when HTML is loaded
+    // Source: MDN DOMContentLoaded - https://developer.mozilla.org/en-US/docs/Web/API/Document/DOMContentLoaded_event
     document.addEventListener('DOMContentLoaded', function() {
+      // Initialize all search boxes and load initial data
       setupCompanySearch();
       setupFilterListeners();
       setupFinancialCompanySearch();
@@ -1707,18 +1827,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       loadSavedLayout();
     });
 
+    // Set up zoom functionality for dashboard boxes
     function setupBoxZoom() {
+      // JS Lab 2: querySelector and querySelectorAll to select DOM elements
       const boxes = document.querySelectorAll('.info-box');
       const overlay = document.getElementById('box-overlay');
 
       boxes.forEach(box => {
         const zoomBtn = box.querySelector('.zoom-btn');
 
+        // JS Lab 2: addEventListener for click events
         zoomBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
+          e.stopPropagation(); // prevent box click handler from firing
 
           const isExpanded = box.classList.contains('expanded');
 
+          // Close any other expanded boxes
           document.querySelectorAll('.info-box.expanded').forEach(b => {
             if (b !== box) {
               b.classList.remove('expanded');
@@ -1729,6 +1853,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           });
 
           if (isExpanded) {
+            // Close this box
             box.classList.remove('expanded');
             overlay.classList.remove('show');
             zoomBtn.textContent = '+';
@@ -1736,15 +1861,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
             resizeChartsInBox(box, false);
           } else {
+            // Open this box
             box.classList.add('expanded');
             overlay.classList.add('show');
             zoomBtn.textContent = '-';
             zoomBtn.title = 'Close';
 
+            // Delay chart resize to allow CSS transition
+            // Source: setTimeout - https://developer.mozilla.org/en-US/docs/Web/API/setTimeout
             setTimeout(() => resizeChartsInBox(box, true), 100);
           }
         });
 
+        // Prevent zoom when clicking interactive elements
         const interactiveElements = box.querySelectorAll('input, select, button:not(.zoom-btn), .search-result-item, .clear-company');
         interactiveElements.forEach(el => {
           el.addEventListener('click', function(e) {
@@ -1753,6 +1882,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         });
       });
 
+      // Click overlay to close expanded box
       overlay.addEventListener('click', function() {
         document.querySelectorAll('.info-box.expanded').forEach(box => {
           box.classList.remove('expanded');
@@ -1766,22 +1896,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       });
     }
 
+    // Resize Plotly charts when box is expanded/collapsed
+    // Source: Plotly.Plots.resize - https://plotly.com/javascript/plotlyjs-function-reference/
     function resizeChartsInBox(box, isExpanded) {
       const boxId = box.getAttribute('data-box-id');
 
       const chartDivs = box.querySelectorAll('.chart-container[id]');
 
       chartDivs.forEach(chartDiv => {
+        // Check if Plotly chart exists in this div
         if (chartDiv.id && window.Plotly && document.getElementById(chartDiv.id)._fullLayout) {
-          if (isExpanded) {
-            Plotly.Plots.resize(chartDiv.id);
-          } else {
-            Plotly.Plots.resize(chartDiv.id);
-          }
+          Plotly.Plots.resize(chartDiv.id);
         }
       });
     }
 
+    // JS Lab 2: Set up event listeners for filter dropdowns
     function setupFilterListeners() {
       document.getElementById('start-quarter').addEventListener('change', loadFinancialHealth);
       document.getElementById('start-year').addEventListener('change', loadFinancialHealth);
@@ -1790,10 +1920,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       document.getElementById('company-type').addEventListener('change', loadFinancialHealth);
     }
 
+    // Set up company search autocomplete functionality
     function setupCompanySearch() {
+      // JS Lab 2: getElementById to get DOM element
       var searchInput = document.getElementById('company-search');
       var resultsDiv = document.getElementById('company-search-results');
 
+      // JS Lab 2: input event fires as user types
       searchInput.addEventListener('input', function() {
         var query = this.value.trim();
 
@@ -1802,13 +1935,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           return;
         }
 
+        // Fetch API for AJAX requests
+        // Source: Fetch API - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
         fetch('senior_manager.php?action=company_search&query=' + encodeURIComponent(query))
-          .then(response => response.json())
+          .then(response => response.json()) // parse JSON response
           .then(companies => {
             if (!companies || companies.length === 0) {
               resultsDiv.innerHTML = '<div class="search-result-item" style="color: #999;">No companies found</div>';
             } else {
               var html = '';
+              // Loop through results and build HTML
               companies.forEach(function(company) {
                 html += '<div class="search-result-item" data-id="' + company.CompanyID + '" data-name="' + company.CompanyName + '">';
                 html += company.CompanyName;
@@ -1821,20 +1957,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           .catch(error => console.error('Company search error:', error));
       });
 
+      // Auto-load all companies when focused with empty input
       searchInput.addEventListener('focus', function() {
         if (this.value.trim().length === 0) {
-          this.value = ' ';
+          this.value = ' '; // trigger input event
           this.dispatchEvent(new Event('input'));
           this.value = '';
         }
       });
 
+      // Handle click on search result
       resultsDiv.addEventListener('click', function(e) {
         if (e.target.classList.contains('search-result-item') && e.target.dataset.id) {
           selectCompany(e.target.dataset.id, e.target.dataset.name);
         }
       });
 
+      // Close dropdown when clicking outside
+      // Source: Event delegation - https://javascript.info/event-delegation
       document.addEventListener('click', function(e) {
         if (!e.target.closest('.search-wrapper')) {
           resultsDiv.classList.remove('show');
@@ -1842,17 +1982,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       });
     }
 
+    // Handle company selection from search results
     function selectCompany(companyID, companyName) {
       selectedCompanyID = companyID;
       selectedCompanyName = companyName;
 
+      // Clear search box
       document.getElementById('company-search').value = '';
       document.getElementById('company-search-results').classList.remove('show');
 
+      // Show selected company with × to clear
       var displayDiv = document.getElementById('selected-company-display');
       displayDiv.innerHTML = '<span class="selected-company">' + companyName +
-        ' <span class="clear-company" onclick="clearCompanySelection()">×</span></span>';
+        ' <span class="clear-company" onclick="clearCompanySelection()"></span></span>';
 
+      // Reload data with new filter
       loadFinancialHealth();
     }
 
@@ -1863,6 +2007,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       loadFinancialHealth();
     }
 
+    // Clear all filters and reload data
     function clearAllFilters() {
       document.getElementById('start-quarter').value = '';
       document.getElementById('start-year').value = '';
@@ -1877,6 +2022,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       loadFinancialHealth();
     }
 
+    // Load financial health data with filters
+    // PHP Lab 3 concept: Sending GET parameters to PHP
     function loadFinancialHealth() {
       var startQuarter = document.getElementById('start-quarter').value;
       var startYear = document.getElementById('start-year').value;
@@ -1884,6 +2031,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       var endYear = document.getElementById('end-year').value;
       var companyType = document.getElementById('company-type').value;
 
+      // Build URL with query parameters
       var url = 'senior_manager.php?action=financial_health';
 
       if (startQuarter) url += '&start_quarter=' + encodeURIComponent(startQuarter);
@@ -1893,12 +2041,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       if (companyType !== 'All') url += '&company_type=' + encodeURIComponent(companyType);
       if (selectedCompanyID) url += '&company_id=' + selectedCompanyID;
 
+      // Make AJAX request
       fetch(url)
         .then(response => response.json())
         .then(data => displayFinancialHealthList(data))
         .catch(error => console.error('Error loading financial health:', error));
     }
 
+    // Display financial health data in list format
     function displayFinancialHealthList(data) {
       var listContainer = document.getElementById('company-list');
 
@@ -1907,6 +2057,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         return;
       }
 
+      // JS Lab 2: Building HTML string and using innerHTML to display
       var listHtml = '';
       data.forEach(function(item) {
         listHtml += '<div class="company-list-item">';
@@ -1919,15 +2070,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       listContainer.innerHTML = listHtml;
     }
 
+    // Populate region dropdown dynamically
     function updateRegionDropdown() {
       fetch('senior_manager.php?action=get_regions')
         .then(response => response.json())
         .then(regions => {
           const dropdown = document.getElementById('region-filter');
-          const currentValue = dropdown.value;
+          const currentValue = dropdown.value; // remember current selection
 
           dropdown.innerHTML = '<option value="All">All Regions</option>';
 
+          // Add each region as an option
           regions.forEach(region => {
             const option = document.createElement('option');
             option.value = region;
@@ -1935,12 +2088,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
             dropdown.appendChild(option);
           });
 
-          dropdown.value = currentValue;
+          dropdown.value = currentValue; // restore selection
         })
         .catch(err => console.error("Error loading regions:", err));
     }
 
-
+    // Load regional disruption data
     function loadRegionalDisruptions() {
       const region = document.getElementById('region-filter').value;
 
@@ -1957,16 +2110,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         .catch(error => console.error('Error loading regional disruptions:', error));
     }
 
-
+    // Initialize region dropdown and load data on page load
     window.addEventListener('DOMContentLoaded', () => {
       updateRegionDropdown();
       loadRegionalDisruptions();
     });
 
-
     document.getElementById('region-filter')
       .addEventListener('change', loadRegionalDisruptions);
 
+    // Display regional disruption data as grouped bar chart
+    // Source: Plotly bar charts - https://plotly.com/javascript/bar-charts/
     function displayRegionalChart(data) {
       var chartContainer = document.getElementById('regional-chart');
 
@@ -1975,6 +2129,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         return;
       }
 
+      // Extract data for chart
       var regions = data.map(function(item) {
         return item.region;
       });
@@ -1985,6 +2140,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         return item.high_impact;
       });
 
+      // Define chart traces (data series)
       var trace1 = {
         x: regions,
         y: totalDisruptions,
@@ -2005,8 +2161,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         }
       };
 
+      // Chart layout configuration
       var layout = {
-        barmode: 'group',
+        barmode: 'group', // bars side-by-side
         margin: {
           t: 20,
           r: 10,
@@ -2014,7 +2171,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           l: 40
         },
         xaxis: {
-          tickangle: -45,
+          tickangle: -45, // angle labels for readability
           tickfont: {
             size: 10
           }
@@ -2032,7 +2189,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         legend: {
           x: 0,
           y: 1.1,
-          orientation: 'h',
+          orientation: 'h', // horizontal legend
           font: {
             size: 10
           }
@@ -2041,10 +2198,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       };
 
       var config = {
-        displayModeBar: false,
-        responsive: true
+        displayModeBar: false, // hide Plotly toolbar
+        responsive: true // auto-resize
       };
 
+      // Create the chart
       Plotly.newPlot('regional-chart', [trace1, trace2], layout, config);
     }
 
@@ -2093,6 +2251,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         .catch(error => console.error('Error loading disruption frequency:', error));
     }
 
+    // Display time series line chart
+    // Source: Plotly line charts - https://plotly.com/javascript/line-charts/
     function displayDisruptionFrequencyChart(data) {
       var chartContainer = document.getElementById('disruption-frequency-chart');
 
@@ -2112,7 +2272,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         x: dates,
         y: counts,
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines+markers', // show both line and points
         line: {
           color: '#2196F3',
           width: 2
@@ -2162,9 +2322,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       Plotly.newPlot('disruption-frequency-chart', [trace], layout, config);
     }
 
+    // Variables for financial company search
     var selectedFinancialCompanyID = null;
     var selectedFinancialCompanyName = null;
 
+    // Set up search box for financial company filter
     function setupFinancialCompanySearch() {
       var searchInput = document.getElementById('financial-company-search');
       var resultsDiv = document.getElementById('financial-company-results');
@@ -2177,6 +2339,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           return;
         }
 
+        // Include region filter in search
         var region = document.getElementById('financial-region').value;
         var url = 'senior_manager.php?action=financial_company_search&query=' + encodeURIComponent(query);
         if (region !== 'All') {
@@ -2225,6 +2388,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       var displayDiv = document.getElementById('financial-selected-company');
       displayDiv.innerHTML = '<span class="selected-company">' + companyName + '</span>';
 
+      // Show the row containing selected company
       document.getElementById('financial-selected-row').style.display = 'flex';
 
       loadCompanyFinancials();
@@ -2278,6 +2442,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       listContainer.innerHTML = listHtml;
     }
 
+    // Load regions for financial filter dropdown
     function loadFinancialRegions() {
       fetch('senior_manager.php?action=get_regions')
         .then(response => response.json())
@@ -2397,6 +2562,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       listContainer.innerHTML = listHtml;
     }
 
+    // Load disruption events for dropdown
     function loadDisruptionEvents() {
       fetch('senior_manager.php?action=get_disruption_events')
         .then(response => response.json())
@@ -2547,6 +2713,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         listHtml += '  <div style="font-size: 10px; color: #666; margin-bottom: 2px;">';
         listHtml += '    Event: ' + item.event_date + ' | Recovery: ' + item.recovery_date;
         listHtml += '  </div>';
+        // Truncate long descriptions
         listHtml += '  <div style="font-size: 10px; color: #555;">' + (item.description.length > 60 ? item.description.substring(0, 60) + '...' : item.description) + '</div>';
         listHtml += '</div>';
       });
@@ -2554,16 +2721,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       listContainer.innerHTML = listHtml;
     }
 
+    // Helper function to get color based on impact level
     function getImpactColor(impactLevel) {
       switch (impactLevel) {
         case 'High':
-          return '#f44336';
+          return '#f44336'; // red
         case 'Medium':
-          return '#ff9800';
+          return '#ff9800'; // orange
         case 'Low':
-          return '#4CAF50';
+          return '#4CAF50'; // green
         default:
-          return '#999';
+          return '#999'; // gray
       }
     }
 
@@ -2584,6 +2752,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
       var listHtml = '';
       data.forEach(function(item) {
+        // Color-code delays: green (<2), orange (2-5), red (>5)
         var delayColor = item.avg_delay > 5 ? '#f44336' : (item.avg_delay > 2 ? '#ff9800' : '#4CAF50');
         listHtml += '<div class="company-list-item">';
         listHtml += '  <div class="company-name">' + item.distributor + '</div>';
@@ -2594,12 +2763,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       listContainer.innerHTML = listHtml;
     }
 
+    // Handle company form submission
+    // PHP Lab 3: Sending POST data with FormData
+    // Source: FormData API - https://developer.mozilla.org/en-US/docs/Web/API/FormData
     function addNewCompany() {
+      // JS Lab 2: Get form values
       var companyName = document.getElementById('new-company-name').value.trim();
       var companyType = document.getElementById('new-company-type').value;
       var region = document.getElementById('new-company-region').value;
       var statusDiv = document.getElementById('add-company-status');
 
+      // JS Lab 2 concept: Client-side validation
       if (!companyName) {
         showAddStatus('error', 'Please enter a company name');
         return;
@@ -2617,6 +2791,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
 
       showAddStatus('loading', 'Creating company...');
 
+      // Build FormData object for POST request
       var formData = new FormData();
       formData.append('action', 'add_company');
       formData.append('company_name', companyName);
@@ -2624,6 +2799,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       formData.append('region', region);
       formData.append('tier_level', '3');
 
+      // Send POST request
       fetch('senior_manager.php', {
           method: 'POST',
           body: formData
@@ -2633,10 +2809,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           if (data.success) {
             showAddStatus('success', data.message + ' (ID: ' + data.company_id + ')');
 
+            // Clear form fields
             document.getElementById('new-company-name').value = '';
             document.getElementById('new-company-type').value = '';
             document.getElementById('new-company-region').value = '';
 
+            // Refresh other boxes that show companies
             loadFinancialHealth();
             loadCriticalCompanies();
           } else {
@@ -2649,6 +2827,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         });
     }
 
+    // Display status message after form submission
     function showAddStatus(type, message) {
       var statusDiv = document.getElementById('add-company-status');
       statusDiv.style.display = 'block';
@@ -2663,6 +2842,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         statusDiv.style.color = '#0f5132';
         statusDiv.style.border = '1px solid #badbcc';
         statusDiv.innerHTML = 'SUCCESS: ' + message;
+        // Auto-hide after 5 seconds
         setTimeout(function() {
           statusDiv.style.display = 'none';
         }, 5000);
@@ -2686,6 +2866,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         .catch(error => console.error('Error loading disruption severity by region:', error));
     }
 
+    // Display stacked bar chart for disruption severity
+    // Source: Plotly stacked bars - https://plotly.com/javascript/bar-charts/#stacked-bar-chart
     function displayDisruptionSeverityChart(data) {
       var chartContainer = document.getElementById('custom-plot-1');
 
@@ -2694,13 +2876,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         return;
       }
 
+      // Get unique regions
+      // Source: Set for unique values - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
       var regions = [...new Set(data.map(item => item.region))];
       var impactLevels = ['Low', 'Medium', 'High'];
 
       var traces = [];
 
+      // Create a trace (bar series) for each impact level
       impactLevels.forEach(function(level) {
         var counts = regions.map(function(region) {
+          // Find matching data point
           var item = data.find(d => d.region === region && d.impact_level === level);
           return item ? item.count : 0;
         });
@@ -2719,7 +2905,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       });
 
       var layout = {
-        barmode: 'stack',
+        barmode: 'stack', // stack bars on top of each other
         margin: {
           t: 40,
           r: 10,
@@ -2779,10 +2965,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       var regions = data.map(item => item.region);
       var avgHealth = data.map(item => item.avg_health);
 
+      // Color-code bars based on health score
       var colors = avgHealth.map(function(health) {
-        if (health >= 80) return '#4CAF50';
-        if (health >= 60) return '#ff9800';
-        return '#f44336';
+        if (health >= 80) return '#4CAF50'; // green for healthy
+        if (health >= 60) return '#ff9800'; // orange for moderate
+        return '#f44336'; // red for poor
       });
 
       var trace = {
@@ -2796,7 +2983,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
             width: 1
           }
         },
-        text: avgHealth.map(h => h.toFixed(1) + '%'),
+        text: avgHealth.map(h => h.toFixed(1) + '%'), // show values on bars
         textposition: 'outside',
         textfont: {
           size: 11
@@ -2824,7 +3011,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
           tickfont: {
             size: 10
           },
-          range: [0, 100]
+          range: [0, 100] // fixed scale 0-100%
         },
         autosize: true,
         showlegend: false
@@ -2838,9 +3025,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       Plotly.newPlot('custom-plot-2', [trace], layout, config);
     }
 
-    // ============================================================================
-    // DRAG-AND-DROP CUSTOMIZATION
-    // ============================================================================
+    // Drag-and-drop for dashboard customization
+    // Source: SortableJS library - https://sortablejs.github.io/Sortable/
 
     var sortableInstance = null;
     var customizeModeActive = false;
@@ -2848,14 +3034,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
     function setupDragAndDrop() {
       const grid = document.querySelector('.info-grid');
 
+      // Initialize SortableJS
       sortableInstance = new Sortable(grid, {
-        animation: 200,
-        disabled: true,
-        ghostClass: 'sortable-ghost',
-        dragClass: 'sortable-drag',
-        handle: '.info-box',
+        animation: 200, // animation duration in ms
+        disabled: true, // start disabled
+        ghostClass: 'sortable-ghost', // class applied to placeholder
+        dragClass: 'sortable-drag', // class applied while dragging
+        handle: '.info-box', // what element to drag by
         onEnd: function() {
-          saveLayout();
+          saveLayout(); // save order when drag ends
         }
       });
     }
@@ -2867,13 +3054,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       customizeModeActive = !customizeModeActive;
 
       if (customizeModeActive) {
-        sortableInstance.option('disabled', false);
+        sortableInstance.option('disabled', false); // enable dragging
         btn.classList.add('active');
         btn.innerHTML = 'Save Layout';
         grid.classList.add('customize-mode-active');
         showNotification('Drag and drop boxes to rearrange!', 'info');
       } else {
-        sortableInstance.option('disabled', true);
+        sortableInstance.option('disabled', true); // disable dragging
         btn.classList.remove('active');
         btn.innerHTML = 'Customize Layout';
         grid.classList.remove('customize-mode-active');
@@ -2882,11 +3069,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       }
     }
 
+    // Save layout to localStorage
+    // Source: localStorage API - https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
     function saveLayout() {
       const grid = document.querySelector('.info-grid');
       const boxes = grid.querySelectorAll('.info-box');
       const layout = [];
 
+      // Store order of box IDs
       boxes.forEach(box => {
         layout.push(box.getAttribute('data-box-id'));
       });
@@ -2894,6 +3084,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       localStorage.setItem('dashboard-layout', JSON.stringify(layout));
     }
 
+    // Load saved layout from localStorage
     function loadSavedLayout() {
       const savedLayout = localStorage.getItem('dashboard-layout');
       if (!savedLayout) return;
@@ -2902,15 +3093,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
         const layout = JSON.parse(savedLayout);
         const grid = document.querySelector('.info-grid');
 
+        // Reorder boxes according to saved layout
         layout.forEach(boxId => {
           const box = grid.querySelector(`[data-box-id="${boxId}"]`);
-          if (box) grid.appendChild(box);
+          if (box) grid.appendChild(box); // move to end
         });
       } catch (e) {
         console.error('Error loading layout:', e);
       }
     }
 
+    // Reset layout to default
     function resetLayout() {
       if (!confirm('Reset dashboard layout to default?')) return;
       localStorage.removeItem('dashboard-layout');
@@ -2918,6 +3111,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       setTimeout(() => location.reload(), 1000);
     }
 
+    // Show temporary notification to user
     function showNotification(message, type) {
       const notification = document.createElement('div');
       notification.style.cssText = `
@@ -2943,6 +3137,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       notification.textContent = message;
       document.body.appendChild(notification);
 
+      // Fade out and remove after 3 seconds
       setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.3s';
@@ -2950,535 +3145,616 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_selected') {
       }, 3000);
     }
 
-    // ============================================================================
-// BOX SELECTION AND EXPORT
-// ============================================================================
+    // Box selection and export functionality
+    var selectionModeActive = false;
+    var selectedBoxes = new Set(); // use Set to avoid duplicates
 
-var selectionModeActive = false;
-var selectedBoxes = new Set();
+    function toggleSelectionMode() {
+      const btn = document.getElementById('select-boxes-btn');
+      const grid = document.querySelector('.info-grid');
 
-function toggleSelectionMode() {
-  const btn = document.getElementById('select-boxes-btn');
-  const grid = document.querySelector('.info-grid');
-  
-  selectionModeActive = !selectionModeActive;
-  
-  if (selectionModeActive) {
-    grid.classList.add('selection-mode-active');
-    document.body.classList.add('selection-mode-active');
-    btn.classList.add('active');
-    btn.innerHTML = 'Done Selecting';
-    showNotification('Click boxes to select them for export', 'info');
-  } else {
-    grid.classList.remove('selection-mode-active');
-    document.body.classList.remove('selection-mode-active');
-    btn.classList.remove('active');
-    btn.innerHTML = 'Select Boxes';
-    
-    selectedBoxes.clear();
-    document.querySelectorAll('.info-box').forEach(box => {
-      box.classList.remove('selected');
-      box.querySelector('.selection-checkbox').classList.remove('checked');
-    });
-    updateExportButton();
-  }
-}
+      selectionModeActive = !selectionModeActive;
 
-function handleBoxClick(event, boxId) {
-  if (event.target.tagName === 'INPUT' || 
-      event.target.tagName === 'SELECT' || 
-      event.target.tagName === 'BUTTON' ||
-      event.target.tagName === 'TEXTAREA' ||
-      event.target.classList.contains('zoom-btn') ||
-      event.target.closest('button') ||
-      event.target.closest('input') ||
-      event.target.closest('select') ||
-      event.target.closest('textarea')) {
-    return;
-  }
-  
-  if (!selectionModeActive) return;
-  
-  toggleBoxSelection(boxId);
-}
+      if (selectionModeActive) {
+        grid.classList.add('selection-mode-active');
+        document.body.classList.add('selection-mode-active');
+        btn.classList.add('active');
+        btn.innerHTML = 'Done Selecting';
+        showNotification('Click boxes to select them for export', 'info');
+      } else {
+        grid.classList.remove('selection-mode-active');
+        document.body.classList.remove('selection-mode-active');
+        btn.classList.remove('active');
+        btn.innerHTML = 'Select Boxes';
 
-function toggleBoxSelection(boxId) {
-  if (!selectionModeActive) return;
-  
-  const box = document.querySelector(`[data-box-id="${boxId}"]`);
-  const checkbox = box.querySelector('.selection-checkbox');
-  
-  if (selectedBoxes.has(boxId)) {
-    selectedBoxes.delete(boxId);
-    box.classList.remove('selected');
-    checkbox.classList.remove('checked');
-  } else {
-    selectedBoxes.add(boxId);
-    box.classList.add('selected');
-    checkbox.classList.add('checked');
-  }
-  
-  updateExportButton();
-}
-
-function updateExportButton() {
-  const exportBtn = document.getElementById('export-selected-btn');
-  const countSpan = document.getElementById('selected-count');
-  
-  countSpan.textContent = selectedBoxes.size;
-  exportBtn.disabled = selectedBoxes.size === 0;
-}
-
-function exportSelectedBoxes() {
-  if (selectedBoxes.size === 0) {
-    alert('Please select at least one box to export');
-    return;
-  }
-  
-  const boxIds = Array.from(selectedBoxes).join(',');
-  
-  const startQuarter = document.getElementById('start-quarter').value;
-  const startYear = document.getElementById('start-year').value;
-  const endQuarter = document.getElementById('end-quarter').value;
-  const endYear = document.getElementById('end-year').value;
-  const startDate = document.getElementById('disruption-start-date').value;
-  const endDate = document.getElementById('disruption-end-date').value;
-  
-  let url = `senior_manager.php?action=export_selected&boxes=${boxIds}`;
-  
-  if (startQuarter) url += `&start_quarter=${startQuarter}`;
-  if (startYear) url += `&start_year=${startYear}`;
-  if (endQuarter) url += `&end_quarter=${endQuarter}`;
-  if (endYear) url += `&end_year=${endYear}`;
-  if (startDate) url += `&start_date=${startDate}`;
-  if (endDate) url += `&end_date=${endDate}`;
-  
-  window.location.href = url;
-  
-  showNotification(`Exporting ${selectedBoxes.size} boxes...`, 'success');
-}
-
-const boxTitles = {
-  'box-1': 'Average Financial Health by Company',
-  'box-2': 'Regional Disruption Overview',
-  'box-3': 'Most Critical Companies',
-  'box-4': 'Disruption Frequency Over Time',
-  'box-5': 'Company Financials',
-  'box-6': 'Top Distributors by Shipment Volume',
-  'box-7': 'Companies Affected by Disruption Event',
-  'box-8': 'All Disruptions for Specific Company',
-  'box-9': 'Distributors Sorted by Average Delay',
-  'box-10': 'Add New Company',
-  'box-11': 'Disruption Severity Mix by Region',
-  'box-12': 'Average Financial Health by Region',
-};
-
-
-// ============================================================================
-// COMPANY COMPARISON FUNCTIONALITY
-// ============================================================================
-
-var comparisonCompanies = new Map(); // Map<id, {id, name}>
-var comparisonData = [];
-var currentComparisonView = 'financial';
-const COMPANY_COLORS = ['#2196F3', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0'];
-
-function openComparisonModal() {
-  document.getElementById('comparison-modal').style.display = 'flex';
-  setupComparisonSearch();
-  comparisonCompanies.clear();
-  comparisonData = [];
-  currentComparisonView = 'financial';
-  updateComparisonDisplay();
-  document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Select at least 2 companies to compare</div>';
-  document.getElementById('comparison-summary').innerHTML = '';
-}
-
-function closeComparisonModal() {
-  document.getElementById('comparison-modal').style.display = 'none';
-  comparisonCompanies.clear();
-  comparisonData = [];
-}
-
-function setupComparisonSearch() {
-  const searchInput = document.getElementById('comparison-company-search');
-  let timeout = null;
-  
-  searchInput.addEventListener('input', function() {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      const query = searchInput.value.trim();
-      
-      fetch(`senior_manager.php?action=company_search&query=${encodeURIComponent(query)}`)
-        .then(response => response.json())
-        .then(companies => {
-          // Show dropdown with results
-          showComparisonSearchResults(companies);
-        })
-        .catch(err => {
-          console.error('Search error:', err);
+        // Clear all selections
+        selectedBoxes.clear();
+        document.querySelectorAll('.info-box').forEach(box => {
+          box.classList.remove('selected');
+          box.querySelector('.selection-checkbox').classList.remove('checked');
         });
-    }, 300);
-  });
-}
+        updateExportButton();
+      }
+    }
 
-function showComparisonSearchResults(companies) {
-  let existingDropdown = document.getElementById('comparison-search-dropdown');
-  if (existingDropdown) {
-    existingDropdown.remove();
-  }
-  
-  if (companies.length === 0) return;
-  
-  const dropdown = document.createElement('div');
-  dropdown.id = 'comparison-search-dropdown';
-  dropdown.style.cssText = 'position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; width: calc(100% - 30px); box-shadow: 0 2px 5px rgba(0,0,0,0.2);';
-  
-  companies.forEach(company => {
-    const item = document.createElement('div');
-    item.textContent = company.CompanyName;
-    item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
-    item.onmouseover = () => item.style.background = '#f0f0f0';
-    item.onmouseout = () => item.style.background = 'white';
-    item.onclick = () => {
-      addCompanyToComparison(company.CompanyID, company.CompanyName);
-      dropdown.remove();
-      document.getElementById('comparison-company-search').value = '';
+    // Handle clicks on boxes when in selection mode
+    function handleBoxClick(event, boxId) {
+      // Don't select if clicking interactive elements
+      if (event.target.tagName === 'INPUT' ||
+        event.target.tagName === 'SELECT' ||
+        event.target.tagName === 'BUTTON' ||
+        event.target.tagName === 'TEXTAREA' ||
+        event.target.classList.contains('zoom-btn') ||
+        event.target.closest('button') ||
+        event.target.closest('input') ||
+        event.target.closest('select') ||
+        event.target.closest('textarea')) {
+        return;
+      }
+
+      if (!selectionModeActive) return;
+
+      toggleBoxSelection(boxId);
+    }
+
+    // Toggle selection state of a box
+    function toggleBoxSelection(boxId) {
+      if (!selectionModeActive) return;
+
+      const box = document.querySelector(`[data-box-id="${boxId}"]`);
+      const checkbox = box.querySelector('.selection-checkbox');
+
+      if (selectedBoxes.has(boxId)) {
+        // Deselect
+        selectedBoxes.delete(boxId);
+        box.classList.remove('selected');
+        checkbox.classList.remove('checked');
+      } else {
+        // Select
+        selectedBoxes.add(boxId);
+        box.classList.add('selected');
+        checkbox.classList.add('checked');
+      }
+
+      updateExportButton();
+    }
+
+    // Update export button text and state
+    function updateExportButton() {
+      const exportBtn = document.getElementById('export-selected-btn');
+      const countSpan = document.getElementById('selected-count');
+
+      countSpan.textContent = selectedBoxes.size;
+      exportBtn.disabled = selectedBoxes.size === 0;
+    }
+
+    // Export selected boxes as CSV
+    function exportSelectedBoxes() {
+      if (selectedBoxes.size === 0) {
+        alert('Please select at least one box to export');
+        return;
+      }
+
+      // Convert Set to comma-separated string
+      const boxIds = Array.from(selectedBoxes).join(',');
+
+      // Get current filter values to apply to export
+      const startQuarter = document.getElementById('start-quarter').value;
+      const startYear = document.getElementById('start-year').value;
+      const endQuarter = document.getElementById('end-quarter').value;
+      const endYear = document.getElementById('end-year').value;
+      const startDate = document.getElementById('disruption-start-date').value;
+      const endDate = document.getElementById('disruption-end-date').value;
+
+      // Build export URL with filters
+      let url = `senior_manager.php?action=export_selected&boxes=${boxIds}`;
+
+      if (startQuarter) url += `&start_quarter=${startQuarter}`;
+      if (startYear) url += `&start_year=${startYear}`;
+      if (endQuarter) url += `&end_quarter=${endQuarter}`;
+      if (endYear) url += `&end_year=${endYear}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+
+      // Trigger download by navigating to URL
+      window.location.href = url;
+
+      showNotification(`Exporting ${selectedBoxes.size} boxes...`, 'success');
+    }
+
+    // Map of box IDs to titles for export
+    const boxTitles = {
+      'box-1': 'Average Financial Health by Company',
+      'box-2': 'Regional Disruption Overview',
+      'box-3': 'Most Critical Companies',
+      'box-4': 'Disruption Frequency Over Time',
+      'box-5': 'Company Financials',
+      'box-6': 'Top Distributors by Shipment Volume',
+      'box-7': 'Companies Affected by Disruption Event',
+      'box-8': 'All Disruptions for Specific Company',
+      'box-9': 'Distributors Sorted by Average Delay',
+      'box-10': 'Add New Company',
+      'box-11': 'Disruption Severity Mix by Region',
+      'box-12': 'Average Financial Health by Region',
     };
-    dropdown.appendChild(item);
-  });
-  
-  const searchInput = document.getElementById('comparison-company-search');
-  searchInput.parentElement.style.position = 'relative';
-  searchInput.parentElement.appendChild(dropdown);
-}
 
-function addCompanyToComparison(id, name) {
-  if (comparisonCompanies.has(id)) {
-    showNotification('Company already added', 'warning');
-    return;
-  }
-  
-  if (comparisonCompanies.size >= 5) {
-    showNotification('Maximum 5 companies allowed', 'warning');
-    return;
-  }
-  
-  comparisonCompanies.set(id, {id, name});
-  updateComparisonDisplay();
-  
-  if (comparisonCompanies.size >= 2) {
-    loadComparisonData();
-  }
-}
 
-function removeCompanyFromComparison(id) {
-  comparisonCompanies.delete(id);
-  updateComparisonDisplay();
-  
-  if (comparisonCompanies.size >= 2) {
-    loadComparisonData();
-  } else {
-    document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Select at least 2 companies to compare</div>';
-    document.getElementById('comparison-summary').innerHTML = '';
-  }
-}
+    // Company comparison modal functionality
+    var comparisonCompanies = new Map(); // stores selected companies
+    var comparisonData = []; // stores fetched comparison data
+    var currentComparisonView = 'financial'; // current tab
+    const COMPANY_COLORS = ['#2196F3', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0'];
 
-function updateComparisonDisplay() {
-  const container = document.getElementById('comparison-selected-companies');
-  const hint = document.getElementById('comparison-hint');
-  
-  container.innerHTML = '';
-  
-  let colorIndex = 0;
-  comparisonCompanies.forEach((company, id) => {
-    const chip = document.createElement('div');
-    chip.style.cssText = `display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: ${COMPANY_COLORS[colorIndex]}; color: white; border-radius: 20px; font-size: 14px;`;
-    chip.innerHTML = `
+    function openComparisonModal() {
+      document.getElementById('comparison-modal').style.display = 'flex';
+      setupComparisonSearch();
+      comparisonCompanies.clear();
+      comparisonData = [];
+      currentComparisonView = 'financial';
+      updateComparisonDisplay();
+      document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Select at least 2 companies to compare</div>';
+      document.getElementById('comparison-summary').innerHTML = '';
+    }
+
+    function closeComparisonModal() {
+      document.getElementById('comparison-modal').style.display = 'none';
+      comparisonCompanies.clear();
+      comparisonData = [];
+    }
+
+    // Set up search for adding companies to comparison
+    function setupComparisonSearch() {
+      const searchInput = document.getElementById('comparison-company-search');
+      let timeout = null;
+
+      searchInput.addEventListener('input', function() {
+        clearTimeout(timeout);
+        // Debounce search to avoid too many requests
+        timeout = setTimeout(() => {
+          const query = searchInput.value.trim();
+
+          fetch(`senior_manager.php?action=company_search&query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(companies => {
+              showComparisonSearchResults(companies);
+            })
+            .catch(err => {
+              console.error('Search error:', err);
+            });
+        }, 300); // wait 300ms after user stops typing
+      });
+    }
+
+    // Show search results dropdown
+    function showComparisonSearchResults(companies) {
+      // Remove existing dropdown if present
+      let existingDropdown = document.getElementById('comparison-search-dropdown');
+      if (existingDropdown) {
+        existingDropdown.remove();
+      }
+
+      if (companies.length === 0) return;
+
+      const dropdown = document.createElement('div');
+      dropdown.id = 'comparison-search-dropdown';
+      dropdown.style.cssText = 'position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; width: calc(100% - 30px); box-shadow: 0 2px 5px rgba(0,0,0,0.2);';
+
+      companies.forEach(company => {
+        const item = document.createElement('div');
+        item.textContent = company.CompanyName;
+        item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+        item.onmouseover = () => item.style.background = '#f0f0f0';
+        item.onmouseout = () => item.style.background = 'white';
+        item.onclick = () => {
+          addCompanyToComparison(company.CompanyID, company.CompanyName);
+          dropdown.remove();
+          document.getElementById('comparison-company-search').value = '';
+        };
+        dropdown.appendChild(item);
+      });
+
+      const searchInput = document.getElementById('comparison-company-search');
+      searchInput.parentElement.style.position = 'relative';
+      searchInput.parentElement.appendChild(dropdown);
+    }
+
+    // Add company to comparison
+    function addCompanyToComparison(id, name) {
+      if (comparisonCompanies.has(id)) {
+        showNotification('Company already added', 'warning');
+        return;
+      }
+
+      if (comparisonCompanies.size >= 5) {
+        showNotification('Maximum 5 companies allowed', 'warning');
+        return;
+      }
+
+      comparisonCompanies.set(id, {
+        id,
+        name
+      });
+      updateComparisonDisplay();
+
+      // Load data if we have at least 2 companies
+      if (comparisonCompanies.size >= 2) {
+        loadComparisonData();
+      }
+    }
+
+    // Remove company from comparison
+    function removeCompanyFromComparison(id) {
+      comparisonCompanies.delete(id);
+      updateComparisonDisplay();
+
+      if (comparisonCompanies.size >= 2) {
+        loadComparisonData();
+      } else {
+        document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Select at least 2 companies to compare</div>';
+        document.getElementById('comparison-summary').innerHTML = '';
+      }
+    }
+
+    // Update display of selected companies
+    function updateComparisonDisplay() {
+      const container = document.getElementById('comparison-selected-companies');
+      const hint = document.getElementById('comparison-hint');
+
+      container.innerHTML = '';
+
+      // Create colored chip for each company
+      let colorIndex = 0;
+      comparisonCompanies.forEach((company, id) => {
+        const chip = document.createElement('div');
+        chip.style.cssText = `display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: ${COMPANY_COLORS[colorIndex]}; color: white; border-radius: 20px; font-size: 14px;`;
+        chip.innerHTML = `
       <span>${company.name}</span>
       <span onclick="removeCompanyFromComparison(${id})" style="cursor: pointer; font-weight: bold; font-size: 18px;">&times;</span>
     `;
-    container.appendChild(chip);
-    colorIndex++;
-  });
-  
-  const count = comparisonCompanies.size;
-  if (count === 0) {
-    hint.textContent = 'Select 2-5 companies to compare';
-    hint.style.color = '#666';
-  } else if (count === 1) {
-    hint.textContent = 'Select at least 1 more company';
-    hint.style.color = '#ff9800';
-  } else {
-    hint.textContent = `Comparing ${count} companies`;
-    hint.style.color = '#4CAF50';
-  }
-}
+        container.appendChild(chip);
+        colorIndex++;
+      });
 
-function loadComparisonData() {
-  const ids = Array.from(comparisonCompanies.keys()).join(',');
-  
-  console.log('🔍 Fetching comparison data for IDs:', ids);
-  
-  fetch(`senior_manager.php?action=compare_companies&ids=${ids}`)
-    .then(response => {
-      console.log('📊 Response status:', response.status);
-      return response.text(); // Get as text first for debugging
-    })
-    .then(text => {
-      console.log('📄 Raw response:', text.substring(0, 500)); // Show first 500 chars
-      const data = JSON.parse(text); // Then parse
-      
-      if (data.error) {
-        throw new Error(data.error);
+      // Update hint text
+      const count = comparisonCompanies.size;
+      if (count === 0) {
+        hint.textContent = 'Select 2-5 companies to compare';
+        hint.style.color = '#666';
+      } else if (count === 1) {
+        hint.textContent = 'Select at least 1 more company';
+        hint.style.color = '#ff9800';
+      } else {
+        hint.textContent = `Comparing ${count} companies`;
+        hint.style.color = '#4CAF50';
       }
-      
-      comparisonData = data;
-      console.log('✅ Comparison data loaded:', comparisonData);
-      displayComparisonView(currentComparisonView);
-    })
-    .catch(err => {
-      console.error('❌ Comparison fetch error:', err);
-      document.getElementById('comparison-chart').innerHTML = `<div style="text-align: center; padding: 50px; color: #f44336;">Network error loading data: ${err.message}</div>`;
-    });
-}
-
-function switchComparisonView(view) {
-  currentComparisonView = view;
-  
-  // Update tab styles
-  document.querySelectorAll('.comparison-tab').forEach(tab => {
-    tab.classList.remove('active');
-    if (tab.dataset.view === view) {
-      tab.classList.add('active');
     }
-  });
-  
-  displayComparisonView(view);
-}
 
-function displayComparisonView(view) {
-  if (comparisonData.length < 2) {
-    document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Need at least 2 companies to display comparison</div>';
-    return;
-  }
-  
-  // Create summary table
-  createComparisonSummaryTable();
-  
-  // Display appropriate chart
-  switch(view) {
-    case 'financial':
-      displayFinancialTrends();
-      break;
-    case 'disruptions':
-      displayDisruptionComparison();
-      break;
-    case 'metrics':
-      displayPerformanceMetrics();
-      break;
-  }
-}
+    // Fetch comparison data from server
+    function loadComparisonData() {
+      const ids = Array.from(comparisonCompanies.keys()).join(',');
 
-function createComparisonSummaryTable() {
-  let html = '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">';
-  html += '<thead><tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">';
-  html += '<th style="padding: 10px; text-align: left;">Company</th>';
-  html += '<th style="padding: 10px; text-align: left;">Type</th>';
-  html += '<th style="padding: 10px; text-align: right;">Health</th>';
-  html += '<th style="padding: 10px; text-align: right;">Disruptions</th>';
-  html += '<th style="padding: 10px; text-align: right;">Avg Delay</th>';
-  html += '<th style="padding: 10px; text-align: right;">Dependencies</th>';
-  html += '</tr></thead><tbody>';
-  
-  comparisonData.forEach((company, index) => {
-    const color = COMPANY_COLORS[index];
-    html += `<tr style="border-bottom: 1px solid #eee;">`;
-    html += `<td style="padding: 10px;"><span style="display: inline-block; width: 12px; height: 12px; background: ${color}; border-radius: 50%; margin-right: 8px;"></span>${company.name}</td>`;
-    html += `<td style="padding: 10px;">${company.type}</td>`;
-    html += `<td style="padding: 10px; text-align: right; color: #4CAF50; font-weight: bold;">${company.latest_health}%</td>`;
-    html += `<td style="padding: 10px; text-align: right;">${company.total_disruptions}</td>`;
-    html += `<td style="padding: 10px; text-align: right;">${company.avg_delay} days</td>`;
-    html += `<td style="padding: 10px; text-align: right;">${company.dependencies}</td>`;
-    html += `</tr>`;
-  });
-  
-  html += '</tbody></table>';
-  document.getElementById('comparison-summary').innerHTML = html;
-}
+      console.log('🔍 Fetching comparison data for IDs:', ids);
 
-function displayFinancialTrends() {
-  const traces = [];
-  
-  comparisonData.forEach((company, index) => {
-    const periods = company.financial_trend.map(t => t.period);
-    const healths = company.financial_trend.map(t => t.health);
-    
-    traces.push({
-      x: periods,
-      y: healths,
-      name: company.name,
-      type: 'scatter',
-      mode: 'lines+markers',
-      line: { color: COMPANY_COLORS[index], width: 2 },
-      marker: { size: 6 }
-    });
-  });
-  
-  const layout = {
-    title: 'Financial Health Trends Over Time',
-    xaxis: { title: 'Time Period' },
-    yaxis: { title: 'Health Score (%)', range: [0, 100] },
-    hovermode: 'closest',
-    legend: { orientation: 'h', y: -0.2 }
-  };
-  
-  Plotly.newPlot('comparison-chart', traces, layout, {responsive: true});
-}
+      fetch(`senior_manager.php?action=compare_companies&ids=${ids}`)
+        .then(response => {
+          console.log('📊 Response status:', response.status);
+          return response.text(); // get as text for debugging
+        })
+        .then(text => {
+          console.log('📄 Raw response:', text.substring(0, 500)); // show first 500 chars
+          const data = JSON.parse(text);
 
-function displayDisruptionComparison() {
-  const companies = comparisonData.map(c => c.name);
-  
-  const highTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.disruptions.High || 0),
-    name: 'High Impact',
-    type: 'bar',
-    marker: { color: '#f44336' }
-  };
-  
-  const mediumTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.disruptions.Medium || 0),
-    name: 'Medium Impact',
-    type: 'bar',
-    marker: { color: '#ff9800' }
-  };
-  
-  const lowTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.disruptions.Low || 0),
-    name: 'Low Impact',
-    type: 'bar',
-    marker: { color: '#4CAF50' }
-  };
-  
-  const layout = {
-    title: 'Disruption Severity Comparison',
-    xaxis: { title: 'Company' },
-    yaxis: { title: 'Number of Disruptions' },
-    barmode: 'stack',
-    legend: { orientation: 'h', y: -0.2 }
-  };
-  
-  Plotly.newPlot('comparison-chart', [lowTrace, mediumTrace, highTrace], layout, {responsive: true});
-}
+          if (data.error) {
+            throw new Error(data.error);
+          }
 
-function displayPerformanceMetrics() {
-  const companies = comparisonData.map(c => c.name);
-  
-  const healthTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.latest_health),
-    name: 'Health Score',
-    type: 'bar',
-    marker: { color: '#4CAF50' }
-  };
-  
-  const disruptionTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.total_disruptions),
-    name: 'Total Disruptions',
-    type: 'bar',
-    marker: { color: '#f44336' }
-  };
-  
-  const delayTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.avg_delay),
-    name: 'Avg Delay (days)',
-    type: 'bar',
-    marker: { color: '#ff9800' }
-  };
-  
-  const depTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.dependencies),
-    name: 'Dependencies',
-    type: 'bar',
-    marker: { color: '#2196F3' }
-  };
-  
-  const shipmentTrace = {
-    x: companies,
-    y: comparisonData.map(c => c.shipment_volume),
-    name: 'Shipment Volume',
-    type: 'bar',
-    marker: { color: '#9C27B0' }
-  };
-  
-  const layout = {
-    title: 'Performance Metrics Comparison',
-    xaxis: { title: 'Company' },
-    yaxis: { title: 'Value (normalized)' },
-    barmode: 'group',
-    legend: { orientation: 'h', y: -0.2 }
-  };
-  
-  Plotly.newPlot('comparison-chart', [healthTrace, disruptionTrace, delayTrace, depTrace, shipmentTrace], layout, {responsive: true});
-}
+          comparisonData = data;
+          console.log('✅ Comparison data loaded:', comparisonData);
+          displayComparisonView(currentComparisonView);
+        })
+        .catch(err => {
+          console.error('❌ Comparison fetch error:', err);
+          document.getElementById('comparison-chart').innerHTML = `<div style="text-align: center; padding: 50px; color: #f44336;">Network error loading data: ${err.message}</div>`;
+        });
+    }
 
-function exportComparisonData() {
-  if (comparisonData.length < 2) {
-    showNotification('Need at least 2 companies to export', 'warning');
-    return;
-  }
-  
-  let csv = 'Company Comparison Report\n';
-  csv += `Generated: ${new Date().toLocaleString()}\n\n`;
-  
-  // Summary section
-  csv += 'SUMMARY\n';
-  csv += 'Company,Type,Health Score,Total Disruptions,Avg Delay (days),Dependencies,Shipment Volume\n';
-  comparisonData.forEach(c => {
-    csv += `"${c.name}",${c.type},${c.latest_health},${c.total_disruptions},${c.avg_delay},${c.dependencies},${c.shipment_volume}\n`;
-  });
-  
-  // Financial trends section
-  csv += '\n\nFINANCIAL HEALTH TRENDS\n';
-  
-  // Get all unique periods
-  const allPeriods = new Set();
-  comparisonData.forEach(c => {
-    c.financial_trend.forEach(t => allPeriods.add(t.period));
-  });
-  const periods = Array.from(allPeriods).sort();
-  
-  // Header row
-  csv += 'Period,' + comparisonData.map(c => `"${c.name}"`).join(',') + '\n';
-  
-  // Data rows
-  periods.forEach(period => {
-    csv += period;
-    comparisonData.forEach(company => {
-      const dataPoint = company.financial_trend.find(t => t.period === period);
-      csv += ',' + (dataPoint ? dataPoint.health : '');
-    });
-    csv += '\n';
-  });
-  
-  // Download
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `company_comparison_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
-  
-  showNotification('Comparison data exported', 'success');
-}
+    // Switch between comparison tabs
+    function switchComparisonView(view) {
+      currentComparisonView = view;
 
+      // Update tab styling
+      document.querySelectorAll('.comparison-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.view === view) {
+          tab.classList.add('active');
+        }
+      });
+
+      displayComparisonView(view);
+    }
+
+    // Display selected comparison view
+    function displayComparisonView(view) {
+      if (comparisonData.length < 2) {
+        document.getElementById('comparison-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">Need at least 2 companies to display comparison</div>';
+        return;
+      }
+
+      createComparisonSummaryTable();
+
+      // Show appropriate chart based on selected tab
+      switch (view) {
+        case 'financial':
+          displayFinancialTrends();
+          break;
+        case 'disruptions':
+          displayDisruptionComparison();
+          break;
+        case 'metrics':
+          displayPerformanceMetrics();
+          break;
+      }
+    }
+
+    // Create summary table at top of modal
+    function createComparisonSummaryTable() {
+      let html = '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">';
+      html += '<thead><tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">';
+      html += '<th style="padding: 10px; text-align: left;">Company</th>';
+      html += '<th style="padding: 10px; text-align: left;">Type</th>';
+      html += '<th style="padding: 10px; text-align: right;">Health</th>';
+      html += '<th style="padding: 10px; text-align: right;">Disruptions</th>';
+      html += '<th style="padding: 10px; text-align: right;">Avg Delay</th>';
+      html += '<th style="padding: 10px; text-align: right;">Dependencies</th>';
+      html += '</tr></thead><tbody>';
+
+      comparisonData.forEach((company, index) => {
+        const color = COMPANY_COLORS[index];
+        html += `<tr style="border-bottom: 1px solid #eee;">`;
+        html += `<td style="padding: 10px;"><span style="display: inline-block; width: 12px; height: 12px; background: ${color}; border-radius: 50%; margin-right: 8px;"></span>${company.name}</td>`;
+        html += `<td style="padding: 10px;">${company.type}</td>`;
+        html += `<td style="padding: 10px; text-align: right; color: #4CAF50; font-weight: bold;">${company.latest_health}%</td>`;
+        html += `<td style="padding: 10px; text-align: right;">${company.total_disruptions}</td>`;
+        html += `<td style="padding: 10px; text-align: right;">${company.avg_delay} days</td>`;
+        html += `<td style="padding: 10px; text-align: right;">${company.dependencies}</td>`;
+        html += `</tr>`;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('comparison-summary').innerHTML = html;
+    }
+
+    // Display financial health trends over time
+    function displayFinancialTrends() {
+      const traces = [];
+
+      comparisonData.forEach((company, index) => {
+        const periods = company.financial_trend.map(t => t.period);
+        const healths = company.financial_trend.map(t => t.health);
+
+        traces.push({
+          x: periods,
+          y: healths,
+          name: company.name,
+          type: 'scatter',
+          mode: 'lines+markers',
+          line: {
+            color: COMPANY_COLORS[index],
+            width: 2
+          },
+          marker: {
+            size: 6
+          }
+        });
+      });
+
+      const layout = {
+        title: 'Financial Health Trends Over Time',
+        xaxis: {
+          title: 'Time Period'
+        },
+        yaxis: {
+          title: 'Health Score (%)',
+          range: [0, 100]
+        },
+        hovermode: 'closest',
+        legend: {
+          orientation: 'h',
+          y: -0.2
+        }
+      };
+
+      Plotly.newPlot('comparison-chart', traces, layout, {
+        responsive: true
+      });
+    }
+
+    // Display disruption severity comparison
+    function displayDisruptionComparison() {
+      const companies = comparisonData.map(c => c.name);
+
+      // Create stacked bar chart with three severity levels
+      const highTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.disruptions.High || 0),
+        name: 'High Impact',
+        type: 'bar',
+        marker: {
+          color: '#f44336'
+        }
+      };
+
+      const mediumTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.disruptions.Medium || 0),
+        name: 'Medium Impact',
+        type: 'bar',
+        marker: {
+          color: '#ff9800'
+        }
+      };
+
+      const lowTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.disruptions.Low || 0),
+        name: 'Low Impact',
+        type: 'bar',
+        marker: {
+          color: '#4CAF50'
+        }
+      };
+
+      const layout = {
+        title: 'Disruption Severity Comparison',
+        xaxis: {
+          title: 'Company'
+        },
+        yaxis: {
+          title: 'Number of Disruptions'
+        },
+        barmode: 'stack',
+        legend: {
+          orientation: 'h',
+          y: -0.2
+        }
+      };
+
+      Plotly.newPlot('comparison-chart', [lowTrace, mediumTrace, highTrace], layout, {
+        responsive: true
+      });
+    }
+
+    // Display grouped performance metrics
+    function displayPerformanceMetrics() {
+      const companies = comparisonData.map(c => c.name);
+
+      // Create grouped bar chart with multiple metrics
+      const healthTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.latest_health),
+        name: 'Health Score',
+        type: 'bar',
+        marker: {
+          color: '#4CAF50'
+        }
+      };
+
+      const disruptionTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.total_disruptions),
+        name: 'Total Disruptions',
+        type: 'bar',
+        marker: {
+          color: '#f44336'
+        }
+      };
+
+      const delayTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.avg_delay),
+        name: 'Avg Delay (days)',
+        type: 'bar',
+        marker: {
+          color: '#ff9800'
+        }
+      };
+
+      const depTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.dependencies),
+        name: 'Dependencies',
+        type: 'bar',
+        marker: {
+          color: '#2196F3'
+        }
+      };
+
+      const shipmentTrace = {
+        x: companies,
+        y: comparisonData.map(c => c.shipment_volume),
+        name: 'Shipment Volume',
+        type: 'bar',
+        marker: {
+          color: '#9C27B0'
+        }
+      };
+
+      const layout = {
+        title: 'Performance Metrics Comparison',
+        xaxis: {
+          title: 'Company'
+        },
+        yaxis: {
+          title: 'Value (normalized)'
+        },
+        barmode: 'group',
+        legend: {
+          orientation: 'h',
+          y: -0.2
+        }
+      };
+
+      Plotly.newPlot('comparison-chart', [healthTrace, disruptionTrace, delayTrace, depTrace, shipmentTrace], layout, {
+        responsive: true
+      });
+    }
+
+    // Export comparison data to CSV
+    function exportComparisonData() {
+      if (comparisonData.length < 2) {
+        showNotification('Need at least 2 companies to export', 'warning');
+        return;
+      }
+
+      let csv = 'Company Comparison Report\n';
+      csv += `Generated: ${new Date().toLocaleString()}\n\n`;
+
+      // Summary section
+      csv += 'SUMMARY\n';
+      csv += 'Company,Type,Health Score,Total Disruptions,Avg Delay (days),Dependencies,Shipment Volume\n';
+      comparisonData.forEach(c => {
+        csv += `"${c.name}",${c.type},${c.latest_health},${c.total_disruptions},${c.avg_delay},${c.dependencies},${c.shipment_volume}\n`;
+      });
+
+      // Financial trends section
+      csv += '\n\nFINANCIAL HEALTH TRENDS\n';
+
+      // Get all unique periods across all companies
+      const allPeriods = new Set();
+      comparisonData.forEach(c => {
+        c.financial_trend.forEach(t => allPeriods.add(t.period));
+      });
+      const periods = Array.from(allPeriods).sort();
+
+      // Header row with company names
+      csv += 'Period,' + comparisonData.map(c => `"${c.name}"`).join(',') + '\n';
+
+      // Data rows - one row per period
+      periods.forEach(period => {
+        csv += period;
+        comparisonData.forEach(company => {
+          const dataPoint = company.financial_trend.find(t => t.period === period);
+          csv += ',' + (dataPoint ? dataPoint.health : '');
+        });
+        csv += '\n';
+      });
+
+      // Create and download CSV file
+      const blob = new Blob([csv], {
+        type: 'text/csv'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `company_comparison_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      showNotification('Comparison data exported', 'success');
+    }
+
+    // Check if user has senior manager role and add nav link
+    // Source: Fetch API for checking user role
     fetch('role.php')
       .then(response => response.json())
       .then(data => {
@@ -3495,6 +3771,7 @@ function exportComparisonData() {
       .catch(err => console.error('Role check failed:', err));
   </script>
 
+  <!-- HTML Lab 1: Modal dialog structure -->
   <!-- Company Comparison Modal -->
   <div id="comparison-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="width: 90%; max-width: 1400px; height: 85vh;">
@@ -3502,23 +3779,23 @@ function exportComparisonData() {
         <h3>Compare Companies</h3>
         <button class="modal-close" onclick="closeComparisonModal()">&times;</button>
       </div>
-      
+
       <div class="modal-body" style="height: calc(100% - 60px); overflow-y: auto;">
         <!-- Company Selection -->
         <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
           <label style="font-weight: bold; display: block; margin-bottom: 10px;">Select Companies to Compare:</label>
-          <input type="text" 
-                 id="comparison-company-search" 
-                 placeholder="Search companies..." 
-                 style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+          <input type="text"
+            id="comparison-company-search"
+            placeholder="Search companies..."
+            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
           <div id="comparison-selected-companies" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
-            <!-- Selected company chips will appear here -->
+            <!-- Selected company chips appear here -->
           </div>
           <div id="comparison-hint" style="color: #666; font-size: 14px;">
             Select 2-5 companies to compare
           </div>
         </div>
-        
+
         <!-- Chart Tabs -->
         <div style="margin-bottom: 20px; border-bottom: 2px solid #e0e0e0;">
           <button class="comparison-tab active" onclick="switchComparisonView('financial')" data-view="financial">
@@ -3531,21 +3808,21 @@ function exportComparisonData() {
             Performance Metrics
           </button>
         </div>
-        
+
         <!-- Summary Table -->
         <div id="comparison-summary" style="margin-bottom: 20px;">
-          <!-- Summary table will be populated here -->
+          <!-- JS will populate summary table here -->
         </div>
-        
+
         <!-- Chart Container -->
         <div id="comparison-chart" style="width: 100%; height: 500px;">
-          <!-- Chart will be rendered here -->
+          <!-- Plotly chart will render here -->
         </div>
-        
+
         <!-- Export Button -->
         <div style="margin-top: 20px; text-align: right;">
-          <button onclick="exportComparisonData()" 
-                  style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          <button onclick="exportComparisonData()"
+            style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
             Export Comparison Data
           </button>
         </div>
